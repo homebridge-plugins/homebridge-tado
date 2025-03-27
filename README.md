@@ -16,7 +16,7 @@ This plugin is originally created by [Sedyx](https://github.com/seydx/). Donate 
 
 ## Info
 
-**TafoPlatform** is possibly the biggest homebridge plugin for Tado devices. 
+**Homebridge Tado** is possibly the biggest homebridge plugin for Tado devices. 
 
 
 **Multiple home support**
