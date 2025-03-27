@@ -1,66 +1,174 @@
-'use strict';
 
-const Logger = require('../helper/logger.js');
+import Logger from '../helper/logger.js';
+import got from 'got';
+import path from 'path';
+import fs from 'fs/promises';
 
-const got = require('got');
-const { ResourceOwnerPassword } = require('simple-oauth2');
+const tado_url = "https://my.tado.com";
+const tado_auth_url = "https://login.tado.com/oauth2";
+const tado_client_id = "1bb50063-6b0c-4d11-bd99-387f4a91cc46";
 
-const EXPIRATION_WINDOW_IN_SECONDS = 300;
-const tado_url = 'https://my.tado.com';
-
-class Tado {
-  constructor(name, credentials) {
-    this.credentials = credentials;
+export default class Tado {
+  constructor(name, config, storagePath) {
     this.name = name;
-
-    //https://my.tado.com/webapp/env.js
-    const params = {
-      client: {
-        id: 'tado-web-app',
-        secret: 'wZaRN7rpjn3FoNyF5IFuxg9uMzYJcvOoQ8QWiIqS3hfk6gLhVlG57j5YNoZL2Rtc',
-      },
-      auth: {
-        tokenHost: 'https://auth.tado.com',
-      },
+    const usesExternalTokenFile = config.username?.toLowerCase().endsWith(".json");
+    this._tadoExternalTokenFilePath = usesExternalTokenFile ? config.username : undefined;
+    const fnSimpleHash = (str) => {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = (hash << 5) - hash + char;
+      }
+      return (hash >>> 0).toString(36).padStart(7, '0');
     };
-
-    this.client = new ResourceOwnerPassword(params);
-
-    Logger.debug('API successfull initialized', this.name);
+    this.username = usesExternalTokenFile ? undefined : config.username;
+    this._tadoInternalTokenFilePath = usesExternalTokenFile ? undefined : path.join(storagePath, `.tado-token-${fnSimpleHash(config.username)}.json`);
+    this._tadoApiClientId = tado_client_id;
+    this._tadoTokenPromise = undefined;
+    this._tadoAuthenticationCallback = undefined;
+    Logger.debug("API successfull initialized", this.name);
   }
 
-  async _login() {
-    const tokenParams = {
-      username: this.credentials.username,
-      password: this.credentials.password,
-      scope: 'home.user',
-    };
-
-    this._accessToken = await this.client.getToken(tokenParams);
+  async getToken() {
+    if (!this._tadoTokenPromise) {
+      this._tadoTokenPromise = this._getToken().finally(() => {
+        this._tadoTokenPromise = undefined;
+      });
+    }
+    return this._tadoTokenPromise;
   }
 
-  async _refreshToken() {
-    if (!this._accessToken) {
-      await this._login();
+  async _getToken() {
+    try {
+      if (!this._tadoBearerToken) this._tadoBearerToken = { access_token: undefined, refresh_token: undefined, timestamp: 0 };
+      if ((Date.now() - this._tadoBearerToken.timestamp) < 9 * 60 * 1000) return this._tadoBearerToken.access_token;
+
+      if (this._tadoExternalTokenFilePath) await this._retrieveTokenFromExternalFile();
+      else await this._retrieveToken();
+
+      if (!this._tadoBearerToken.access_token) throw new Error("An unknown error occurred.");
+
+      return this._tadoBearerToken.access_token;
+    } catch (error) {
+      throw new Error(`API call failed. Could not get access token: ${error.message || error}`);
     }
+  }
 
-    if (this._accessToken.expired(EXPIRATION_WINDOW_IN_SECONDS)) {
-      Logger.debug('Access Token expired! Refreshing token...', this.name);
+  async _retrieveToken() {
+    try {
+      if (this._tadoBearerToken.refresh_token) return this._refreshToken(this._tadoBearerToken.refresh_token);
+      await fs.access(this._tadoInternalTokenFilePath);
+      const refresh_token = await this._retrieveRefreshTokenFromInternalFile();
+      return this._refreshToken(refresh_token);
 
-      this._accessToken = await this._accessToken.refresh();
-
-      Logger.debug('Access token refreshed!', this.name);
-    } else {
-      Logger.debug('Access token NOT expired', this.name);
+    } catch (_err) {
+      return this._authenticateUser();
     }
+  }
 
-    return;
+  async _retrieveRefreshTokenFromInternalFile() {
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const data = await fs.readFile(this._tadoInternalTokenFilePath, "utf8");
+        const json = JSON.parse(data);
+        if (json.refresh_token) return json.refresh_token;
+      } catch (error) {
+        Logger.warn(`Failed to load from internal file (attempt ${attempt} of ${maxRetries}):`, error);
+      }
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    throw new Error(`Failed to load from internal file after ${maxRetries} attempts.`);
+  }
+
+  async _refreshToken(old_refresh_token) {
+    try {
+      const response = await got.post(`${tado_auth_url}/token`, {
+        form: {
+          client_id: this._tadoApiClientId,
+          grant_type: "refresh_token",
+          refresh_token: old_refresh_token
+        },
+        responseType: "json"
+      });
+      const { access_token, refresh_token } = response.body;
+      if (!access_token) throw new Error("Empty access token.");
+      await fs.writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
+      this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
+    } catch (error) {
+      Logger.warn(`Error while refreshing token: ${error.message || error}`);
+      return this._authenticateUser();
+    }
+  }
+
+  async _authenticateUser() {
+    Logger.info('Requesting device authorization...');
+    const authResponse = await got.post(`${tado_auth_url}/device_authorize`, {
+      form: {
+        client_id: this._tadoApiClientId,
+        scope: "offline_access"
+      },
+      responseType: "json"
+    });
+    const { device_code, verification_uri_complete } = authResponse.body;
+    if (!device_code) throw new Error("Failed to retrieve device code.");
+    Logger.info(`Open the following URL in your browser, click "submit" and log in to your tado° account "${this.username}": ${verification_uri_complete}`);
+    if (this._tadoAuthenticationCallback) this._tadoAuthenticationCallback(verification_uri_complete);
+    const maxRetries = 30;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      let tokenResponse;
+      try {
+        tokenResponse = await got.post(`${tado_auth_url}/token`, {
+          form: {
+            client_id: this._tadoApiClientId,
+            device_code: device_code,
+            grant_type: "urn:ietf:params:oauth:grant-type:device_code"
+          },
+          responseType: "json"
+        });
+      } catch (_error) {
+        //authentication still pending -> response code 400
+      }
+      if (tokenResponse?.body) {
+        const { access_token, refresh_token } = tokenResponse.body;
+        if (access_token) {
+          await fs.writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
+          this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
+          Logger.info("Authentication successful!");
+          return;
+        }
+      }
+      Logger.info("Waiting for confirmation...");
+    }
+    throw new Error(`Failed to authenticate after ${maxRetries} attempts.`);
+  }
+
+  async _retrieveTokenFromExternalFile() {
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const data = await fs.readFile(this._tadoExternalTokenFilePath, 'utf8');
+        const json = JSON.parse(data);
+        if (json.access_token) {
+          this._tadoBearerToken = { access_token: json.access_token, refresh_token: undefined, timestamp: Date.now() };
+          return;
+        }
+      } catch (error) {
+        Logger.warn(`Failed to load from external file (attempt ${attempt} of ${maxRetries}):`, error);
+      }
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+    }
+    throw new Error(`Failed to load from external file after ${maxRetries} attempts.`);
   }
 
   async apiCall(path, method = 'GET', data = {}, params = {}, tado_url_dif, blockLog) {
-    Logger.debug('Checking access token..', this.name);
-
-    await this._refreshToken();
+    Logger.debug('Get access token...', this.name);
+    const access_token = await this.getToken();
 
     let tadoLink = tado_url_dif || tado_url;
 
@@ -68,11 +176,11 @@ class Tado {
 
     Logger.debug(
       'API request ' +
-        method +
-        ' ' +
-        path +
-        ' ' +
-        (data && Object.keys(data).length ? JSON.stringify(data) + ' <pending>' : '<pending>'),
+      method +
+      ' ' +
+      path +
+      ' ' +
+      (data && Object.keys(data).length ? JSON.stringify(data) + ' <pending>' : '<pending>'),
       this.name
     );
 
@@ -80,9 +188,11 @@ class Tado {
       method: method,
       responseType: 'json',
       headers: {
-        Authorization: 'Bearer ' + this._accessToken.token.access_token,
+        Authorization: 'Bearer ' + access_token,
       },
-      timeout: 30000,
+      timeout: {
+        request: 30000
+      },
       retry: {
         limit: 2,
         statusCodes: [408, 429, 503, 504],
@@ -98,11 +208,11 @@ class Tado {
 
     Logger.debug(
       'API request ' +
-        method +
-        ' ' +
-        path +
-        ' ' +
-        (data && Object.keys(data).length ? JSON.stringify(data) + ' <success>' : '<success>'),
+      method +
+      ' ' +
+      path +
+      ' ' +
+      (data && Object.keys(data).length ? JSON.stringify(data) + ' <success>' : '<success>'),
       this.name
     );
 
@@ -110,6 +220,32 @@ class Tado {
       Logger.debug('API request ' + method + ' ' + path + ' <response> ' + JSON.stringify(response.body), this.name);
 
     return response.body;
+  }
+
+  async fullAuthentication() {
+    let instructions = "";
+    let resolve;
+    const oPromise = new Promise((res, _) => {
+      resolve = res;
+    });
+    this._tadoAuthenticationCallback = (openInBrowserInstructions) => {
+      instructions = openInBrowserInstructions;
+      resolve();
+    };
+    try {
+      await Promise.race([
+        this.getToken(),
+        oPromise
+      ]);
+    } finally {
+      this._tadoAuthenticationCallback = undefined;
+    }
+    return instructions;
+  }
+
+  async waitForAuthentication() {
+    await this.getToken();
+    return "Authentication successful!";
   }
 
   async getMe() {
@@ -400,5 +536,3 @@ class Tado {
     return this.apiCall(`/v1/homes/${home_id}/runningTimes`, 'GET', {}, period, 'https://minder.tado.com', false);
   }
 }
-
-module.exports = Tado;

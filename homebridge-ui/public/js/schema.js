@@ -34,17 +34,11 @@ const schema = {
           'description': 'The user name that you use for the app and the web app of Tado.',
           'required': true
         },
-        'password': {
-          'title': 'Password',
-          'type': 'string',
-          'description': 'The password that you use for the app and the web app of Tado.',
-          'required': true
-        },
         'polling': {
           'title': 'Polling',
           'description': 'The polling interval in seconds.',
           'type': 'integer',
-          'default': 30,
+          'default': 300,
           'minimum': 30
         },
         'temperatureUnit': {
@@ -74,12 +68,12 @@ const schema = {
             'longitude': {
               'title': 'Longitude',
               'type': 'string',
-              'description': 'Longitude coordinate of your home. (Used for Air Quality)'
+              'description': 'Longitude coordinate of your home.'
             },
             'latitude': {
               'title': 'Latitude',
               'type': 'string',
-              'description': 'Latitude coordinate of your home. (Used for Air Quality)'
+              'description': 'Latitude coordinate of your home.'
             }
           }
         },
@@ -193,11 +187,6 @@ const schema = {
                 }
               ],
               'description': 'The accessory type of the device.'
-            },
-            'airQuality': {
-              'title': 'Air Quality',
-              'type': 'boolean',
-              'description': 'If enabled, a air quality sensor will be exposed to HomeKit. (Longitute and Latitude must be set in the config)'
             }
           }
         },
@@ -350,14 +339,6 @@ const schema = {
                 'type': 'boolean',
                 'description': 'If enabled, additional window switch accessory for each zone will be exposed to HomeKit to trigger and enable/disable open window.'
               },
-              'airQuality': {
-                'title': 'Room Air Quality Sensor',
-                'type': 'boolean',
-                'description': 'If enabled, the thermostat/heater cooler accessory will also show an air quality indicator.',
-                'condition': {
-                  'functionBody': 'try { return model.homes.zones[arrayIndices[0]].type === \'HEATING\' } catch(e){ return false }'
-                }
-              },
               'separateTemperature': {
                 'title': 'Separate Temperature Sensors',
                 'type': 'boolean',
@@ -370,22 +351,22 @@ const schema = {
                 'condition': {
                   'functionBody': 'try { return model.homes.zones[arrayIndices[0]].type === \'HEATING\' } catch(e){ return false }'
                 }
-              },  
+              },
               'minStep': {
                 'title': 'Temperature Step',
                 'type': 'string',
-                'description': 'Minimum step for temperature adjustment. (Default: 1, must be between 0 - 1)'                                
+                'description': 'Minimum step for temperature adjustment. (Default: 1, must be between 0 - 1)'
               },
               'minValue': {
                 'title': 'Minimum Temperature',
                 'type': 'integer',
-                'description': 'Minimum adjustable temperature value (in celsius/fahrenheit). HEATING devices also this plugin, supports a minValue of 5° Celsius / 41° Fahrenheit by default. HOT WATER devices, also this plugin, supports a minValue of of 30° Celsius / 86° Fahrenheit by default. If your device has a different minValue, you can set it up here. (Incorrect minValue may cause problems!)'               
+                'description': 'Minimum adjustable temperature value (in celsius/fahrenheit). HEATING devices also this plugin, supports a minValue of 5° Celsius / 41° Fahrenheit by default. HOT WATER devices, also this plugin, supports a minValue of of 30° Celsius / 86° Fahrenheit by default. If your device has a different minValue, you can set it up here. (Incorrect minValue may cause problems!)'
               },
               'maxValue': {
                 'title': 'Maximum Temperature',
                 'type': 'integer',
-                'description': 'Maximum adjustable temperature value (in celsius/fahrenheit). HEATING devices also this plugin, supports a maxValue of 25° Celsius / 77° Fahrenheit  by default. HOT WATER devices, also this plugin, supports a maxValue of of 65° Celsius / 149° Fahrenheit by default. If your device has a different maxValue, you can set it up here. (Incorrect maxValue may cause problems!)'                
-              },   
+                'description': 'Maximum adjustable temperature value (in celsius/fahrenheit). HEATING devices also this plugin, supports a maxValue of 25° Celsius / 77° Fahrenheit  by default. HOT WATER devices, also this plugin, supports a maxValue of of 65° Celsius / 149° Fahrenheit by default. If your device has a different maxValue, you can set it up here. (Incorrect maxValue may cause problems!)'
+              },
               'mode': {
                 'title': 'Termination Mode',
                 'type': 'string',
@@ -417,7 +398,7 @@ const schema = {
                   }
                 ],
                 'description': 'Mode for the commands to be sent with. can be \'MANUAL\' for manual control until ended by the user, \'AUTO\' for manual control until next schedule change in tado° app, \'TIMER\' for manual control until timer ends or \'CUSTOM\' for a mixed use of MANUAL (off) and AUTO (on). (CUSTOM is only for HEATING types with easyMode enabled and HOT_WATER types with temperature support).'
-              },  
+              },
               'modeTimer': {
                 'title': 'Timer',
                 'description': 'Timer for the manual mode in minutes.',
@@ -581,8 +562,7 @@ const schema = {
       'orderable': false,
       'items': [
         'homes.id',
-        'homes.username',
-        'homes.password'
+        'homes.username'
       ]
     },
     {
@@ -619,19 +599,19 @@ const schema = {
               'items': [
                 'homes.zones[].id',
                 'homes.zones[].easyMode',
-                'homes.zones[].noBattery', 
+                'homes.zones[].noBattery',
                 {
                   'title': 'Temperature',
                   'orderable': false,
                   'expandable': true,
                   'expanded': false,
                   'type': 'section',
-                  'items': [ 
+                  'items': [
                     'homes.zones[].minValue',
-                    'homes.zones[].maxValue',                                      
+                    'homes.zones[].maxValue',
                     'homes.zones[].minStep'
                   ]
-                },                
+                },
                 {
                   'title': 'Hot Water',
                   'orderable': false,
@@ -667,7 +647,6 @@ const schema = {
                   'expanded': false,
                   'type': 'section',
                   'items': [
-                    'homes.zones[].airQuality',
                     'homes.zones[].separateTemperature',
                     'homes.zones[].separateHumidity'
                   ]
@@ -739,11 +718,10 @@ const schema = {
         'homes.weather.temperatureSensor',
         'homes.weather.solarIntensity',
         'homes.weather.accTypeSolarIntensity',
-        'homes.weather.airQuality',
         {
           'title': 'Location',
           'condition': {
-            'functionBody': 'try { return model.homes.weather.airQuality } catch(e) { return false };'
+            'functionBody': 'return false;'
           },
           'orderable': false,
           'items': [

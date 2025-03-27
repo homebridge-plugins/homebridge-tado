@@ -1,35 +1,33 @@
-'use strict';
+import DeviceHandler from './helper/handler.js';
+import Logger from './helper/logger.js';
+import packageFile from '../package.json' with { type: 'json' };
+import TadoConfig from './tado/tado-config.js';
+import fakeGatoHistory from 'fakegato-history';
 
-const DeviceHandler = require('./helper/handler.js');
-const Logger = require('./helper/logger.js');
-const packageFile = require('../package.json');
-const TadoConfig = require('./tado/tado-config.js');
+// Accessories
+import ContactAccessory from './accessories/contact.js';
+import FaucetAccessory from './accessories/faucet.js';
+import HeaterCoolerAccessory from './accessories/heatercooler.js';
+import HumidityAccessory from './accessories/humidity.js';
+import MotionAccessory from './accessories/motion.js';
+import OccupancyAccessory from './accessories/occupancy.js';
+import SecurityAccessory from './accessories/security.js';
+import SolarLightbulbAccessory from './accessories/lightbulb.js';
+import SolarLightsensorAccessory from './accessories/lightsensor.js';
+import SwitchAccessory from './accessories/switch.js';
+import TemperatureAccessory from './accessories/temperature.js';
+import ThermostatAccessory from './accessories/thermostat.js';
 
-//Accessories
-const AirqualityAccessory = require('./accessories/airquality.js');
-const ContactAccessory = require('./accessories/contact.js');
-const FaucetAccessory = require('./accessories/faucet.js');
-const HeaterCoolerAccessory = require('./accessories/heatercooler.js');
-const HumidityAccessory = require('./accessories/humidity.js');
-const MotionAccessory = require('./accessories/motion.js');
-const OccupancyAccessory = require('./accessories/occupancy.js');
-const SecurityAccessory = require('./accessories/security.js');
-const SolarLightbulbAccessory = require('./accessories/lightbulb.js');
-const SolarLightsensorAccessory = require('./accessories/lightsensor.js');
-const SwitchAccessory = require('./accessories/switch.js');
-const TemperatureAccessory = require('./accessories/temperature.js');
-const ThermostatAccessory = require('./accessories/thermostat.js');
-
-//Custom Types
-const CustomTypes = require('./types/custom.js');
-const EveTypes = require('./types/eve.js');
+// Custom Types
+import CustomTypes from './types/custom.js';
+import EveTypes from './types/eve.js';
 
 const PLUGIN_NAME = '@homebridge-plugins/homebridge-tado';
 const PLATFORM_NAME = 'TadoPlatform';
 
 var Accessory, UUIDGen, FakeGatoHistoryService;
 
-module.exports = function (homebridge) {
+export default function (homebridge) {
   Accessory = homebridge.platformAccessory;
   UUIDGen = homebridge.hap.uuid;
 
@@ -45,7 +43,7 @@ function TadoPlatform(log, config, api) {
   //init types/fakegato
   CustomTypes.registerWith(api.hap);
   EveTypes.registerWith(api.hap);
-  FakeGatoHistoryService = require('fakegato-history')(api);
+  FakeGatoHistoryService = fakeGatoHistory(api);
 
   this.api = api;
   this.accessories = [];
@@ -53,16 +51,18 @@ function TadoPlatform(log, config, api) {
 
   this.user = [];
 
-  //setup config/plugin
-  this.setupPlugin();
+  const storagePath = this.api.user.storagePath();
 
-  if (!this.user.length) this.setupConfig();
+  //setup config/plugin
+  this.setupPlugin(storagePath);
+
+  if (!this.user.length) this.setupConfig(storagePath);
 
   this.api.on('didFinishLaunching', this.didFinishLaunching.bind(this));
 }
 
 TadoPlatform.prototype = {
-  setupPlugin: async function () {
+  setupPlugin: async function (storagePath) {
     try {
       if (this.config.user && this.config.user.length) {
         for (const credentials of this.config.user) {
@@ -71,17 +71,13 @@ TadoPlatform.prototype = {
           if (!credentials.username) {
             Logger.warn('There is no username configured for the user. This user will be skipped.');
             error = true;
-          } else if (!credentials.password) {
-            Logger.warn('There is no password configured for the user. This user will be skipped.');
-            error = true;
           } else if (credentials.reconfigure === false) {
             error = true;
           }
 
           if (!error) {
             this.user.push({
-              username: credentials.username,
-              password: credentials.password,
+              username: credentials.username
             });
           }
         }
@@ -95,20 +91,19 @@ TadoPlatform.prototype = {
 
               if (foundHome.length) {
                 //refresh
-                if (foundHome[0].name && foundHome[0].username && foundHome[0].password) {
+                if (foundHome[0].name && foundHome[0].username) {
                   Logger.info('Refreshing home...', foundHome[0].name);
                   this.config = await TadoConfig.refresh(foundHome[0].name, this.config, {
-                    username: foundHome[0].username,
-                    password: foundHome[0].password,
-                  });
+                    username: foundHome[0].username
+                  }, storagePath);
                 }
               } else {
                 Logger.info('Generating new home...', user.username);
-                this.config = await TadoConfig.add(this.config, [user]);
+                this.config = await TadoConfig.add(this.config, [user], storagePath);
               }
             } else {
               Logger.info('Generating new home...', user.username);
-              this.config = await TadoConfig.add(this.config, [user]);
+              this.config = await TadoConfig.add(this.config, [user], storagePath);
             }
           }
         }
@@ -120,19 +115,18 @@ TadoPlatform.prototype = {
           .map((user) => {
             return {
               reconfigure: false,
-              username: user.username,
-              password: user.password,
+              username: user.username
             };
           })
           .filter((user) => user);
 
-        await TadoConfig.store(this.config, this.api.user.storagePath());
+        await TadoConfig.store(this.config, storagePath);
 
         Logger.info('Done!');
 
         //setup config
         this.user = [];
-        this.setupConfig();
+        this.setupConfig(storagePath);
 
         //configure accessories
         this.accessories.forEach((accessory) => {
@@ -150,9 +144,9 @@ TadoPlatform.prototype = {
     return;
   },
 
-  setupConfig: function () {
+  setupConfig: function (storagePath) {
     try {
-      const { config, devices, deviceHandler, telegram } = TadoConfig.setup(this.config, UUIDGen);
+      const { config, devices, deviceHandler, telegram } = TadoConfig.setup(this.config, UUIDGen, storagePath);
 
       this.config = config;
       this.devices = devices;
@@ -291,9 +285,6 @@ TadoPlatform.prototype = {
         break;
       case 'weather-lightsensor':
         new SolarLightsensorAccessory(this.api, accessory, this.accessories, tado);
-        break;
-      case 'weather-airquality':
-        new AirqualityAccessory(this.api, accessory, this.accessories, tado);
         break;
       case 'extra-plock':
         new SecurityAccessory(this.api, accessory, this.accessories, tado, deviceHandler);

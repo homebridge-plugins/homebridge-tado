@@ -1,10 +1,6 @@
 {
-    "bridge": {
-        ...
-    },
-    "accessories": [
-        ...
-    ],
+    "bridge": {},
+    "accessories": [],
     "platforms": [
         {
             "name": "TadoPlatform",
@@ -14,8 +10,7 @@
                 {
                     "id": 123456,
                     "name": "My Home",
-                    "username": "test@user.com",
-                    "password": "myPassWord!",
+                    "username": "mail@example.com",
                     "polling": 60,
                     "temperatureUnit": "CELSIUS",
                     "geolocation": {
@@ -41,8 +36,7 @@
                     "weather": {
                         "temperatureSensor": true,
                         "solarIntensity": true,
-                        "accTypeSolarIntensity": "LIGHTBULB",
-                        "airQuality": true
+                        "accTypeSolarIntensity": "LIGHTBULB"
                     },
                     "extras": {
                         "centralSwitch": true,
@@ -79,7 +73,6 @@
                             "type": "HEATING",
                             "delaySwitch": true,
                             "autoOffDelay": true,
-                            "airQuality": true,
                             "openWindowSensor": true,
                             "openWindowSwitch": false,
                             "separateTemperature": false,
@@ -130,7 +123,6 @@
                             "type": "HEATING",
                             "delaySwitch": true,
                             "autoOffDelay": false,
-                            "airQuality": true,
                             "openWindowSensor": true,
                             "openWindowSwitch": false,
                             "separateTemperature": true,

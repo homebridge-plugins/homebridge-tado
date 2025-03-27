@@ -1,10 +1,6 @@
-'use strict';
+import Logger from './logger.js';
 
-const Logger = require('./logger.js');
-
-const FormData = require('form-data');
-
-class Telegram {
+export default class Telegram {
   constructor(options, messages) {
     this.token = options.token;
     this.chatID = options.chatID;
@@ -56,5 +52,3 @@ class Telegram {
     }
   }
 }
-
-module.exports = Telegram;

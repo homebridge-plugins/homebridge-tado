@@ -1,12 +1,9 @@
-'use strict';
-
-const Logger = require('../helper/logger.js');
-
-const moment = require('moment');
+import Logger from '../helper/logger.js';
+import moment from 'moment';
 
 const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
 
-class HumidityAccessory {
+export default class HumidityAccessory {
   constructor(api, accessory, accessories, tado, deviceHandler, FakeGatoHistoryService) {
     this.api = api;
     this.accessory = accessory;
@@ -35,12 +32,12 @@ class HumidityAccessory {
       );
     }
 
-    let batteryService = this.accessory.getService(this.api.hap.Service.BatteryService);
+    let batteryService = this.accessory.getService(this.api.hap.Service.Battery);
 
     if (!this.accessory.context.config.noBattery && this.accessory.context.config.type === 'HEATING') {
       if (!batteryService) {
         Logger.info('Adding Battery service', this.accessory.displayName);
-        batteryService = this.accessory.addService(this.api.hap.Service.BatteryService);
+        batteryService = this.accessory.addService(this.api.hap.Service.Battery);
       }
       batteryService.setCharacteristic(
         this.api.hap.Characteristic.ChargingState,
@@ -86,5 +83,3 @@ class HumidityAccessory {
     }, 10 * 60 * 1000);
   }
 }
-
-module.exports = HumidityAccessory;

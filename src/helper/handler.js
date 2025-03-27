@@ -1,15 +1,12 @@
-'use strict';
-
-const Logger = require('../helper/logger.js');
-
-const moment = require('moment');
+import Logger from '../helper/logger.js';
+import moment from 'moment';
 
 var settingState = false;
 var delayTimer = {};
 
 const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
 
-module.exports = (api, accessories, config, tado, telegram) => {
+export default (api, accessories, config, tado, telegram) => {
   async function setStates(accessory, accs, target, value) {
     accessories = accs.filter((acc) => acc && acc.context.config.homeName === config.homeName);
 
@@ -100,8 +97,8 @@ module.exports = (api, accessories, config, tado, telegram) => {
 
                 mode =
                   !value &&
-                  accessory.context.config.mode === 'AUTO' &&
-                  accessory.context.config.subtype.includes('heatercooler')
+                    accessory.context.config.mode === 'AUTO' &&
+                    accessory.context.config.subtype.includes('heatercooler')
                     ? 'MANUAL'
                     : mode;
 
@@ -143,8 +140,8 @@ module.exports = (api, accessories, config, tado, telegram) => {
 
               mode =
                 !value &&
-                accessory.context.config.mode === 'CUSTOM' &&
-                accessory.context.config.subtype.includes('heatercooler')
+                  accessory.context.config.mode === 'CUSTOM' &&
+                  accessory.context.config.subtype.includes('heatercooler')
                   ? 'MANUAL'
                   : mode;
             } else {
@@ -453,8 +450,8 @@ module.exports = (api, accessories, config, tado, telegram) => {
 
           let valvePos =
             currentTemp <= targetTemp &&
-            currentState !== api.hap.Characteristic.CurrentHeatingCoolingState.OFF &&
-            targetState !== api.hap.Characteristic.TargetHeatingCoolingState.OFF
+              currentState !== api.hap.Characteristic.CurrentHeatingCoolingState.OFF &&
+              targetState !== api.hap.Characteristic.TargetHeatingCoolingState.OFF
               ? Math.round(targetTemp - currentTemp >= 5 ? 100 : (targetTemp - currentTemp) * 20)
               : 0;
 
@@ -593,36 +590,16 @@ module.exports = (api, accessories, config, tado, telegram) => {
       if (!config.homeId) await updateMe();
 
       //Home
-      if (
-        !config.temperatureUnit ||
-        (config.extras &&
-          config.weather.airQuality &&
-          (!config.geolocation ||
-            (config.geolocation && !config.geolocation.longitude) ||
-            !config.geolocation.latitude))
-      )
-        await updateHome();
+      if (!config.temperatureUnit) await updateHome();
 
       //Zones
       if (config.zones.length) await updateZones();
-
-      //Zones Room Air Quality
-      if (config.zones.length && config.zones.find((zone) => zone && zone.airQuality)) await updateRoomAirQuality();
 
       //MobileDevices
       if (config.presence.length) await updateMobileDevices();
 
       //Weather
       if (config.weather.temperatureSensor || config.weather.solarIntensity) await updateWeather();
-
-      //AirQuality
-      if (
-        config.weather.airQuality &&
-        config.geolocation &&
-        config.geolocation.longitude &&
-        config.geolocation.latitude
-      )
-        await updateAirQuality();
 
       //RunningTime
       if (config.extras.centralSwitch && config.extras.runningInformation) await updateRunningTime();
@@ -717,14 +694,14 @@ module.exports = (api, accessories, config, tado, telegram) => {
             config.zones[index].id = zoneWithID.id;
             config.zones[index].battery = !config.zones[index].noBattery
               ? zoneWithID.devices.filter(
-                  (device) =>
-                    device &&
-                    zone.type === 'HEATING' &&
-                    typeof device.batteryState === 'string' &&
-                    !device.batteryState.includes('NORMAL')
-                ).length
+                (device) =>
+                  device &&
+                  zone.type === 'HEATING' &&
+                  typeof device.batteryState === 'string' &&
+                  !device.batteryState.includes('NORMAL')
+              ).length
                 ? zoneWithID.devices.filter((device) => device && !device.batteryState.includes('NORMAL'))[0]
-                    .batteryState
+                  .batteryState
                 : zoneWithID.devices.filter((device) => device && device.duties.includes('ZONE_LEADER'))[0].batteryState
               : false;
             config.zones[index].openWindowEnabled =
@@ -1189,115 +1166,6 @@ module.exports = (api, accessories, config, tado, telegram) => {
     return;
   }
 
-  async function updateRoomAirQuality() {
-    if (!settingState) {
-      Logger.debug('Polling Room AirQuality...', config.homeName);
-
-      const airQuality = await tado.getAirComfort(config.homeId);
-
-      const heatAccessories = accessories.filter(
-        (acc) =>
-          (acc && acc.context.config.subtype === 'zone-thermostat') ||
-          acc.context.config.subtype === 'zone-heatercooler'
-      );
-
-      heatAccessories.forEach((acc) => {
-        if (acc.context.config.airQuality) {
-          airQuality.comfort.forEach((room) => {
-            if (room.roomId === acc.context.config.zoneId && room.coordinate) {
-              let state =
-                room.coordinate.radial >= 0.8
-                  ? 5
-                  : room.coordinate.radial >= 0.6
-                  ? 4
-                  : room.coordinate.radial >= 0.4
-                  ? 3
-                  : room.coordinate.radial >= 0.2
-                  ? 2
-                  : room.coordinate.radial >= 0
-                  ? 1
-                  : 0;
-
-              let service = acc.getService(api.hap.Service.Thermostat) || acc.getService(api.hap.Service.HeaterCooler);
-              let characteristic = api.hap.Characteristic.AirQuality;
-
-              service.getCharacteristic(characteristic).updateValue(state);
-            }
-          });
-        }
-      });
-    }
-  }
-
-  async function updateAirQuality() {
-    if (!settingState) {
-      const airQualityAccessory = accessories.filter(
-        (acc) => acc && acc.displayName === acc.context.config.homeName + ' Air Quality'
-      );
-
-      if (airQualityAccessory.length) {
-        Logger.debug('Polling AirQuality...', config.homeName);
-
-        const airQuality = await tado.getWeatherAirComfort(
-          config.homeId,
-          config.geolocation.longitude,
-          config.geolocation.latitude
-        );
-
-        let service = airQualityAccessory[0].getService(api.hap.Service.AirQualitySensor);
-
-        let characteristicAqi = api.hap.Characteristic.AirQuality;
-        let characteristicPm10 = api.hap.Characteristic.PM10Density;
-        let characteristicPm25 = api.hap.Characteristic.PM2_5Density;
-        let characteristicNdd = api.hap.Characteristic.NitrogenDioxideDensity;
-        let characteristicOd = api.hap.Characteristic.OzoneDensity;
-        let characteristicSdd = api.hap.Characteristic.SulphurDioxideDensity;
-        let characteristicCo = api.hap.Characteristic.CarbonMonoxideLevel;
-
-        if (airQuality.outdoorQuality) {
-          let returnPol = (target) =>
-            airQuality.outdoorQuality.pollutants.filter((pol) => pol && pol.scientificName.includes(target));
-
-          let aqi =
-            airQuality.outdoorQuality.aqi.value >= 80
-              ? 1
-              : airQuality.outdoorQuality.aqi.value >= 60
-              ? 2
-              : airQuality.outdoorQuality.aqi.value >= 40
-              ? 3
-              : airQuality.outdoorQuality.aqi.value >= 20
-              ? 4
-              : airQuality.outdoorQuality.aqi.value >= 0
-              ? 5
-              : 0;
-
-          let pm10 = returnPol('PM<sub>10</sub>')[0].concentration.value;
-          let pm25 = returnPol('PM<sub>2.5</sub>')[0].concentration.value;
-          let ndd = returnPol('NO<sub>2</sub>')[0].concentration.value;
-          let od = returnPol('O<sub>3</sub>')[0].concentration.value;
-          let sdd = returnPol('SO<sub>2</sub>')[0].concentration.value;
-          let co = returnPol('CO')[0].concentration.value;
-
-          if (!isNaN(aqi)) service.getCharacteristic(characteristicAqi).updateValue(aqi);
-
-          if (!isNaN(pm10)) service.getCharacteristic(characteristicPm10).updateValue(pm10);
-
-          if (!isNaN(pm25)) service.getCharacteristic(characteristicPm25).updateValue(pm25);
-
-          if (!isNaN(ndd)) service.getCharacteristic(characteristicNdd).updateValue(ndd * 1.9123);
-
-          if (!isNaN(od)) service.getCharacteristic(characteristicOd).updateValue(od * 1.9954);
-
-          if (!isNaN(sdd)) service.getCharacteristic(characteristicSdd).updateValue(sdd * 2.6647);
-
-          if (!isNaN(co)) service.getCharacteristic(characteristicCo).updateValue(co / 1000); //ppb to ppm
-        }
-      }
-    }
-
-    return;
-  }
-
   async function updatePresence() {
     if (!settingState) {
       const presenceLockAccessory = accessories.filter(
@@ -1359,8 +1227,8 @@ module.exports = (api, accessories, config, tado, telegram) => {
             period === 'days'
               ? moment().format('YYYY-MM-DD')
               : period === 'months'
-              ? moment().subtract(1, 'days').subtract(1, period).format('YYYY-MM-DD')
-              : moment().add(1, 'months').startOf('month').subtract(1, period).format('YYYY-MM-DD');
+                ? moment().subtract(1, 'days').subtract(1, period).format('YYYY-MM-DD')
+                : moment().add(1, 'months').startOf('month').subtract(1, period).format('YYYY-MM-DD');
 
           let toDate = period === 'years' ? moment().format('YYYY-MM-DD') : false;
 
@@ -1376,8 +1244,8 @@ module.exports = (api, accessories, config, tado, telegram) => {
               period === 'years'
                 ? api.hap.Characteristic.OverallHeatYear
                 : period === 'months'
-                ? api.hap.Characteristic.OverallHeatMonth
-                : api.hap.Characteristic.OverallHeatDay;
+                  ? api.hap.Characteristic.OverallHeatMonth
+                  : api.hap.Characteristic.OverallHeatDay;
 
             serviceSwitch.getCharacteristic(characteristic).updateValue(summaryInHours);
           }

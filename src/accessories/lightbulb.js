@@ -1,8 +1,7 @@
-'use strict';
 
-const Logger = require('../helper/logger.js');
+import Logger from '../helper/logger.js';
 
-class SolarLightbulbAccessory {
+export default class SolarLightbulbAccessory {
   constructor(api, accessory, accessories, tado) {
     this.api = api;
     this.accessory = accessory;
@@ -55,5 +54,3 @@ class SolarLightbulbAccessory {
     });
   }
 }
-
-module.exports = SolarLightbulbAccessory;

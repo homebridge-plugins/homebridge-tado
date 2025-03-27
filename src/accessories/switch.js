@@ -1,8 +1,6 @@
-'use strict';
+import Logger from '../helper/logger.js';
 
-const Logger = require('../helper/logger.js');
-
-class SwitchAccessory {
+export default class SwitchAccessory {
   constructor(api, accessory, accessories, tado, deviceHandler) {
     this.api = api;
     this.accessory = accessory;
@@ -257,5 +255,3 @@ class SwitchAccessory {
     }
   }
 }
-
-module.exports = SwitchAccessory;

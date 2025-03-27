@@ -1,8 +1,7 @@
-'use strict';
 
-const Logger = require('../helper/logger.js');
+import Logger from '../helper/logger.js';
 
-class FaucetAccessory {
+export default class FaucetAccessory {
   constructor(api, accessory, accessories, tado, deviceHandler) {
     this.api = api;
     this.accessory = accessory;
@@ -59,5 +58,3 @@ class FaucetAccessory {
       .onSet(this.deviceHandler.setStates.bind(this, this.accessory, this.accessories, 'State'));
   }
 }
-
-module.exports = FaucetAccessory;

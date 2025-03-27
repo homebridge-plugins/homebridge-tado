@@ -1,8 +1,7 @@
-'use strict';
 
-const Logger = require('../helper/logger.js');
+import Logger from '../helper/logger.js';
 
-class OccupancyAccessory {
+export default class OccupancyAccessory {
   constructor(api, accessory, accessories, tado, deviceHandler) {
     this.api = api;
     this.accessory = accessory;
@@ -41,5 +40,3 @@ class OccupancyAccessory {
       .on('change', this.deviceHandler.changedStates.bind(this, this.accessory, false, this.accessory.displayName));
   }
 }
-
-module.exports = OccupancyAccessory;

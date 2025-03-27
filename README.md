@@ -8,12 +8,11 @@
 [![npm](https://img.shields.io/npm/dt/@homebridge-plugins/homebridge-tado.svg?style=flat-square)](https://www.npmjs.com/package/@homebridge-plugins/homebridge-tado)
 [![GitHub last commit](https://img.shields.io/github/last-commit/homebridge-plugins/homebridge-tado.svg?style=flat-square)](https://github.com/homebridge-plugins/homebridge-tado)
 [![verified-by-homebridge](https://badgen.net/badge/homebridge/verified/purple)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
-[![Discord](https://img.shields.io/discord/432663330281226270?color=728ED5&logo=discord&label=discord)](https://discord.gg/kqNCe2D)
-[![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=flat-square&maxAge=2592000)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=NP4T3KASWQLD8)
+[![Donate](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/smart7324)
 
-**Creating and maintaining Homebridge plugins consume a lot of time and effort, if you would like to share your appreciation, feel free to "Star" or donate.**
+## Fork
 
-[Click here](https://github.com/SeydX) to review more of my plugins.
+This plugin is originally created by [Sedyx](https://github.com/seydx/). Donate to him: [![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=flat-square&maxAge=2592000)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=NP4T3KASWQLD8)
 
 ## Info
 
@@ -27,7 +26,7 @@ The plugin even offers support for multiple houses. So it is finally possible to
 
 **Full HomeKit Support**
 
-Everything Tado offers can be displayed through the plugin in Apple HomeKit. The thermostat buttons themselves have custom characteristics and can even display the air quality for a room. Full hot water support, weather temperature, solar intensity, weather air quality, tado quick actions, child lock, presence lock and much more awaits you with this plugin! 
+Everything Tado offers can be displayed through the plugin in Apple HomeKit. The thermostat buttons themselves have custom characteristics. Full hot water support, weather temperature, solar intensity, weather, tado quick actions, child lock, presence lock and much more awaits you with this plugin! 
 
 
 **History**
@@ -58,7 +57,6 @@ After [Homebridge](https://github.com/nfarina/homebridge) has been installed:
   - [Hot Water](#hot-water)
   - [Presence](#presence)
   - [Weather](#weather)
-    - [Air Quality](#air-quality)
   - [Extras](#extras)
     - [Central Switch](#central-switch)
       - [Boost Switch](#boost-switch)
@@ -86,7 +84,7 @@ _(In the section below you can find more information about the functions.)_
  
 ## Non Config Ui X User?:
 
-The plugin can also work without config ui x or a custom ui. If you want the config.json auto-fill feature, you have to put the following part in your config.json. This will generate a ready to use config.json with all options disabled except thermostats. After the first start, thhis user will get ``"reconfigure": false``. If you want to refresh a home, just enable ``"reconfigure"`` for the user and restart homebridge. If you want to add an another home, add the user credentials (username/password) to the array. The Plugin can handle multiple accounts. 
+The plugin can also work without config ui x or a custom ui. If you want the config.json auto-fill feature, you have to put the following part in your config.json. This will generate a ready to use config.json with all options disabled except thermostats. After the first start, thhis user will get ``"reconfigure": false``. If you want to refresh a home, just enable ``"reconfigure"`` for the user and restart homebridge. If you want to add an another home, add the user credentials (username) to the array. The Plugin can handle multiple accounts. 
 
 **Note:**
 
@@ -107,8 +105,7 @@ If you on HOOBS, you need to reboot the HOOBS server to get your first start con
       "debug": false,
       "user": [
         {
-          "username": "test@mail.com",
-          "password": "testPassword123"
+          "username": "mail@example.com"
         }
       ]
     }
@@ -128,7 +125,6 @@ Each zone in the config.json with ``"type": "HEATING"`` and ``"easyMode": false`
 - Curent Temperature
 - Target Temperature
 - Built-in humidity sensor
-- Room Air Quality
 - Separate Humidity (if ``"separateHumidity": true``)
 - Separate Temperature Sensor (if ``"separateTemperature": true``)
 - Battery state (if ``noBattery: false``)
@@ -168,7 +164,6 @@ You can also adjust the minimum temperature step ``"minStep"``, minimum temperat
         "autoOffDelay": false,
         "openWindowSensor": true,
         "openWindowSwitch": false,
-        "airQuality": true,
         "separateTemperature": false,
         "separateHumidity": true,
         "mode": "MANUAL",
@@ -290,7 +285,7 @@ Each user or anyone sensor in the config.json is exposed to HomeKit as a occupan
 
 ## Weather
 
-Weather settings allow you to display a sensor for temperature, a light bulb (```"accTypeSolarIntensity": "LIGHTBULB"```)  or light sensor (```"accTypeSolarIntensity": "SENSOR"```) for sun intensity, or a sensor for air quality in HomeKit.
+Weather settings allow you to display a sensor for temperature, a light bulb (```"accTypeSolarIntensity": "LIGHTBULB"```)  or light sensor (```"accTypeSolarIntensity": "SENSOR"```) for sun intensity in HomeKit.
 
 ```
 "homes": [
@@ -301,19 +296,13 @@ Weather settings allow you to display a sensor for temperature, a light bulb (``
     "weather": {
       "temperatureSensor": true,
       "solarIntensity": true,
-      "accTypeSolarIntensity": "LIGHTBULB",
-      "airQuality": true
+      "accTypeSolarIntensity": "LIGHTBULB"
     }
     ...
   }
   ...
 ]
 ```
-
-### Air Quality
-
-In order to use the Air Quality Sensor, you need to enable airQuality ``"airQuality": true`` (see above) **AND** you must enter your location data (latitude and longitude) in config.json. You can easily find the coordinates to your location/address on the following page: [latlong.net](https://www.latlong.net/convert-address-to-lat-long.html)
-
 
 ```
 "homes": [
@@ -325,9 +314,7 @@ In order to use the Air Quality Sensor, you need to enable airQuality ``"airQual
     "zones": [ ... ],
     "extras": { ... },
     "presence": { ... },
-    "weather": { 
-      "airQuality": true
-    }
+    "weather": { ... }
     ...
   }
   ...

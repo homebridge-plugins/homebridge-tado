@@ -1,30 +1,17 @@
 {
   "name": "@homebridge-plugins/homebridge-tado",
-  "version": "6.0.14",
-  "description": "Homebridge plugin for controlling Tado devices",
+  "version": "7.5.1",
+  "description": "Homebridge plugin for controlling tado° devices.",
   "main": "index.js",
-  "funding": [
-    {
-      "type": "paypal",
-      "url": "https://paypal.me/seydx"
-    },
-    {
-      "type": "kofi",
-      "url": "https://ko-fi.com/seydx"
-    },
-    {
-      "type": "github",
-      "url": "https://github.com/sponsors/seydx"
-    }
-  ],
   "scripts": {
     "lint": "eslint --fix ."
   },
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/homebridge-plugins/homebridge-tado.git"
   },
-  "author": "SeydX (https://github.com/homebridge-plugins/homebridge-tado)",
+  "author": "maintained by smart7324 (https://github.com/smart7324/) - author SeydX (https://github.com/SeydX/)",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/homebridge-plugins/homebridge-tado/issues"
@@ -41,26 +28,27 @@
     "heat"
   ],
   "engines": {
-    "node": ">=12.18.3",
-    "homebridge": "^1.1.6"
+    "node": ">=20",
+    "homebridge": "^1.6.0||^2.0.0-beta.0"
   },
   "dependencies": {
-    "@homebridge/plugin-ui-utils": "^0.0.19",
-    "fakegato-history": "^0.6.1",
-    "form-data": "^4.0.0",
-    "fs-extra": "^10.0.0",
-    "got": "^11.8.2",
-    "moment": "^2.29.1",
-    "simple-oauth2": "^4.2.0"
+    "@homebridge/plugin-ui-utils": "^2.0.1",
+    "fakegato-history": "^0.6.7",
+    "form-data": "^4.0.2",
+    "fs-extra": "^11.3.0",
+    "got": "^14.4.6",
+    "moment": "^2.30.1"
   },
   "devDependencies": {
-    "@babel/core": "7.14.3",
-    "@babel/eslint-parser": "7.14.4",
-    "@babel/eslint-plugin": "7.13.16",
-    "eslint": "^7.27.0",
-    "eslint-config-prettier": "^8.3.0",
-    "eslint-plugin-import": "^2.23.4",
-    "eslint-plugin-prettier": "^3.4.0",
-    "prettier": "^2.3.0"
+    "@babel/core": "7.26.10",
+    "@babel/eslint-parser": "7.27.0",
+    "@babel/eslint-plugin": "7.27.0",
+    "@eslint/js": "^9.23.0",
+    "eslint": "^9.23.0",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-prettier": "^5.2.5",
+    "globals": "^16.0.0",
+    "prettier": "^3.5.3"
   }
 }

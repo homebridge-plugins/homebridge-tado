@@ -1,10 +1,7 @@
-'use strict';
-
-const fs = require('fs-extra');
-
-const Logger = require('../helper/logger.js');
-const TadoApi = require('./tado-api.js');
-const Telegram = require('../helper/telegram');
+import fs from 'fs-extra';
+import Logger from '../helper/logger.js';
+import TadoApi from './tado-api.js';
+import Telegram from '../helper/telegram.js';
 
 //https://stackoverflow.com/a/15710692
 const hashCode = (s) =>
@@ -20,18 +17,16 @@ const deviceHandler = new Map();
 
 let telegram;
 
-module.exports = {
-  add: async function (config, credentials) {
+export default {
+  add: async function (config, credentials, storagePath) {
     config.homes = config.homes || [];
 
     for (const user of credentials) {
       let username = user.username;
-      let password = user.password;
 
       const tado = new TadoApi('Configuration', {
         username: username,
-        password: password,
-      });
+      }, storagePath);
 
       const me = await tado.getMe();
 
@@ -48,8 +43,7 @@ module.exports = {
             id: foundHome.id,
             name: foundHome.name,
             username: username,
-            password: password,
-            polling: 30,
+            polling: 300,
             zones: [],
             presence: {
               anyone: false,
@@ -59,8 +53,7 @@ module.exports = {
             weather: {
               temperatureSensor: false,
               solarIntensity: false,
-              accTypeSolarIntensity: 'LIGHTBULB',
-              airQuality: false,
+              accTypeSolarIntensity: 'LIGHTBULB'
             },
             extras: {
               centralSwitch: false,
@@ -144,7 +137,6 @@ module.exports = {
               openWindowSensor: false,
               openWindowSwitch: false,
               accTypeOpenWindowSwitch: 'SWITCH',
-              airQuality: false,
               separateTemperature: false,
               separateHumidity: false,
               accTypeBoiler: 'SWITCH',
@@ -160,15 +152,14 @@ module.exports = {
     return config;
   },
 
-  resync: async function (config, credentials) {
+  resync: async function (config, credentials, storagePath) {
     const availableHomesInApis = [];
 
     for (const user of credentials) {
       //Init API with credentials
       const tado = new TadoApi('Configuration', {
-        username: user.username,
-        password: user.password,
-      });
+        username: user.username
+      }, storagePath);
 
       const me = await tado.getMe();
 
@@ -176,8 +167,7 @@ module.exports = {
         availableHomesInApis.push({
           id: foundHome.id,
           name: foundHome.name,
-          username: user.username,
-          password: user.password,
+          username: user.username
         });
       });
     }
@@ -199,27 +189,24 @@ module.exports = {
 
     //refresh existing homes
     for (let home of config.homes.entries()) {
-      if (home.name && home.username && home.password) {
+      if (home.name && home.username) {
         config = await this.refresh(home.name, config, {
-          username: home.username,
-          password: home.password,
-        });
+          username: home.username
+        }, storagePath);
       }
     }
 
-    config = await this.add(config, availableHomesInApis);
+    config = await this.add(config, availableHomesInApis, storagePath);
 
     return config;
   },
 
-  refresh: async function (currentHome, config, credentials) {
+  refresh: async function (currentHome, config, credentials, storagePath) {
     let username = credentials.username;
-    let password = credentials.password;
 
     const tado = new TadoApi('Configuration', {
-      username: username,
-      password: password,
-    });
+      username: username
+    }, storagePath);
 
     //Home Informations
     let home = config.homes.find((home) => home && home.name === currentHome);
@@ -243,7 +230,6 @@ module.exports = {
       if (config.homes[i].name === homeInfo.name) {
         config.homes[i].id = homeInfo.id;
         config.homes[i].username = credentials.username;
-        config.homes[i].password = credentials.password;
         config.homes[i].temperatureUnit = homeInfo.temperatureUnit || 'CELSIUS';
         config.homes[i].zones = config.homes[i].zones || [];
 
@@ -393,7 +379,6 @@ module.exports = {
                 openWindowSensor: false,
                 openWindowSwitch: false,
                 accTypeOpenWindowSwitch: 'SWITCH',
-                airQuality: false,
                 separateTemperature: false,
                 separateHumidity: false,
                 accTypeBoiler: 'SWITCH',
@@ -443,7 +428,6 @@ module.exports = {
               openWindowSensor: false,
               openWindowSwitch: false,
               accTypeOpenWindowSwitch: 'SWITCH',
-              airQuality: false,
               separateTemperature: false,
               separateHumidity: false,
               accTypeBoiler: 'SWITCH',
@@ -497,7 +481,7 @@ module.exports = {
     return config;
   },
 
-  setup: function (config, UUIDGen) {
+  setup: function (config, UUIDGen, storagePath) {
     if (config.homes && config.homes.length) {
       config.homes.forEach((home) => {
         let error = false;
@@ -509,23 +493,18 @@ module.exports = {
         } else if (!home.username) {
           Logger.warn('There is no username configured for this home. This home will be skipped.', home.name);
           error = true;
-        } else if (!home.password) {
-          Logger.warn('There is no password configured for this home. This home will be skipped.', home.name);
-          error = true;
         }
 
         if (!error) {
           //Base Config
           const tado = new TadoApi(home.name, {
-            username: home.username,
-            password: home.password,
-          });
+            username: home.username
+          }, storagePath);
 
           const accessoryConfig = {
             homeId: home.id,
             homeName: home.name,
             username: home.username,
-            password: home.password,
             temperatureUnit: home.temperatureUnit || 'CELSIUS',
             geolocation: home.geolocation,
             tado: tado,
@@ -540,7 +519,7 @@ module.exports = {
               home.extras && home.extras.childLockSwitches
                 ? home.extras.childLockSwitches.filter((childLockSwitch) => childLockSwitch && childLockSwitch.active)
                 : [],
-            polling: Number.isInteger(home.polling) ? (home.polling < 30 ? 30 : home.polling) : 30,
+            polling: Number.isInteger(home.polling) ? (home.polling < 30 ? 30 : home.polling) : 300,
           };
 
           if (home.zones && home.zones.length) {
@@ -586,14 +565,13 @@ module.exports = {
                           ? 'zone-heatercooler'
                           : 'zone-thermostat'
                         : valid_boilerTypes.includes(zone.accTypeBoiler) && zone.accTypeBoiler === 'FAUCET'
-                        ? 'zone-faucet'
-                        : 'zone-switch';
+                          ? 'zone-faucet'
+                          : 'zone-switch';
 
                     config.subtype = zone.boilerTempSupport ? 'zone-heatercooler-boiler' : config.subtype;
 
                     config.zoneId = zone.id;
                     config.type = zone.type;
-                    config.airQuality = zone.airQuality;
                     config.separateTemperature = zone.separateTemperature;
                     config.separateHumidity = zone.separateHumidity;
                     config.minStep = zone.minStep;
@@ -817,33 +795,6 @@ module.exports = {
                 config.subtype =
                   home.weather.accTypeSolarIntensity === 'SENSOR' ? 'weather-lightsensor' : 'weather-lightbulb';
                 config.model = 'Solar Intensity';
-                config.serialNumber = hashCode(name);
-
-                devices.set(uuid, config);
-              }
-            }
-
-            //Configure Weather AirQuality Sensor
-            if (
-              home.weather.airQuality &&
-              home.geolocation &&
-              home.geolocation.latitude &&
-              home.geolocation.longitude
-            ) {
-              const name = home.name + ' Air Quality';
-              const uuid = UUIDGen.generate(name);
-
-              if (devices.has(uuid)) {
-                Logger.warn('Multiple devices are configured with this name. Duplicate devices will be skipped.', name);
-              } else {
-                let config = { ...accessoryConfig };
-
-                config.name = name;
-                config.subtype = 'weather-airquality';
-                config.latitude = home.geolocation.latitude;
-                config.longitude = home.geolocation.longitude;
-
-                config.model = 'Air Quality Sensor';
                 config.serialNumber = hashCode(name);
 
                 devices.set(uuid, config);

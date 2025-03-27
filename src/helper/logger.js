@@ -1,9 +1,7 @@
-'use strict';
-
 var log = console;
 var debugMode = false;
 
-module.exports = {
+export default {
   init: function (logger, debug) {
     log = logger;
     //debugMode = process.argv.includes('-D') || process.argv.includes('--debug');

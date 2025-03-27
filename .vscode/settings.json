@@ -4,8 +4,13 @@
   "editor.insertSpaces": true,
   "files.eol": "\n",
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": true
+    "source.fixAll.eslint": "always"
   },
   "editor.formatOnSave": true,
-  "eslint.workingDirectories": ["./"]
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "vue"
+  ]
 }

@@ -1,13 +1,10 @@
-'use strict';
-
-const Logger = require('../helper/logger.js');
-
-const fs = require('fs-extra');
-const moment = require('moment');
+import Logger from '../helper/logger.js';
+import moment from 'moment';
+import fs from 'fs-extra';
 
 const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
 
-class ThermostatAccessory {
+export default class ThermostatAccessory {
   constructor(api, accessory, accessories, tado, deviceHandler, FakeGatoHistoryService) {
     this.api = api;
     this.accessory = accessory;
@@ -44,12 +41,12 @@ class ThermostatAccessory {
       );
     }
 
-    let batteryService = this.accessory.getService(this.api.hap.Service.BatteryService);
+    let batteryService = this.accessory.getService(this.api.hap.Service.Battery);
 
     if (!this.accessory.context.config.noBattery) {
       if (!batteryService) {
         Logger.info('Adding Battery service', this.accessory.displayName);
-        batteryService = this.accessory.addService(this.api.hap.Service.BatteryService);
+        batteryService = this.accessory.addService(this.api.hap.Service.Battery);
       }
       batteryService.setCharacteristic(
         this.api.hap.Characteristic.ChargingState,
@@ -60,15 +57,6 @@ class ThermostatAccessory {
         Logger.info('Removing Battery service', this.accessory.displayName);
         this.accessory.removeService(batteryService);
       }
-    }
-
-    //Handle AirQuality
-    if (this.accessory.context.config.airQuality && this.accessory.context.config.type !== 'HOT_WATER') {
-      if (!service.testCharacteristic(this.api.hap.Characteristic.AirQuality))
-        service.addCharacteristic(this.api.hap.Characteristic.AirQuality);
-    } else {
-      if (service.testCharacteristic(this.api.hap.Characteristic.AirQuality))
-        service.removeCharacteristic(service.getCharacteristic(this.api.hap.Characteristic.AirQuality));
     }
 
     //Handle DelaySwitch
@@ -130,8 +118,8 @@ class ThermostatAccessory {
           ? 30
           : 86
         : this.accessory.context.config.temperatureUnit === 'CELSIUS'
-        ? 5
-        : 41;
+          ? 5
+          : 41;
 
     let maxValue =
       this.accessory.context.config.type === 'HOT_WATER'
@@ -139,8 +127,8 @@ class ThermostatAccessory {
           ? 65
           : 149
         : this.accessory.context.config.temperatureUnit === 'CELSIUS'
-        ? 25
-        : 77;
+          ? 25
+          : 77;
 
     minValue = this.accessory.context.config.minValue < maxValue ? this.accessory.context.config.minValue : minValue;
 
@@ -148,9 +136,9 @@ class ThermostatAccessory {
 
     let minStep = parseFloat(
       (this.accessory.context.config.minStep &&
-      !isNaN(this.accessory.context.config.minStep) &&
-      this.accessory.context.config.minStep > 0 &&
-      this.accessory.context.config.minStep <= 1
+        !isNaN(this.accessory.context.config.minStep) &&
+        this.accessory.context.config.minStep > 0 &&
+        this.accessory.context.config.minStep <= 1
         ? parseFloat(this.accessory.context.config.minStep)
         : 1
       ).toFixed(2)
@@ -235,14 +223,16 @@ class ThermostatAccessory {
     service
       .getCharacteristic(this.api.hap.Characteristic.TargetTemperature)
       .onSet((value) => {
-        let tempUnit = service.getCharacteristic(this.api.hap.Characteristic.TemperatureDisplayUnits).value;
-
-        let cToF = (c) => Math.round((c * 9) / 5 + 32);
-        let fToC = (f) => Math.round(((f - 32) * 5) / 9);
-
-        let newValue = tempUnit ? (value <= 25 ? cToF(value) : value) : value > 25 ? fToC(value) : value;
-
-        service.getCharacteristic(this.api.hap.Characteristic.CurrentTemperature).updateValue(newValue);
+        /*
+         *let tempUnit = service.getCharacteristic(this.api.hap.Characteristic.TemperatureDisplayUnits).value;
+         *
+         *let cToF = (c) => Math.round((c * 9) / 5 + 32);
+         *let fToC = (f) => Math.round(((f - 32) * 5) / 9);
+         *
+         *let newValue = tempUnit ? (value <= 25 ? cToF(value) : value) : value > 25 ? fToC(value) : value;
+         *
+         *service.getCharacteristic(this.api.hap.Characteristic.CurrentTemperature).updateValue(newValue);
+        */
 
         this.timeoutAuto = setTimeout(() => {
           let targetState = service.getCharacteristic(this.api.hap.Characteristic.TargetHeatingCoolingState).value;
@@ -333,5 +323,3 @@ class ThermostatAccessory {
     return;
   }
 }
-
-module.exports = ThermostatAccessory;

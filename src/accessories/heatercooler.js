@@ -1,12 +1,9 @@
-'use strict';
-
-const Logger = require('../helper/logger.js');
-
-const moment = require('moment');
+import Logger from '../helper/logger.js';
+import moment from 'moment';
 
 const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
 
-class HeaterCoolerAccessory {
+export default class HeaterCoolerAccessory {
   constructor(api, accessory, accessories, tado, deviceHandler, FakeGatoHistoryService) {
     this.api = api;
     this.accessory = accessory;
@@ -55,12 +52,12 @@ class HeaterCoolerAccessory {
       );
     }
 
-    let batteryService = this.accessory.getService(this.api.hap.Service.BatteryService);
+    let batteryService = this.accessory.getService(this.api.hap.Service.Battery);
 
     if (!this.accessory.context.config.noBattery && this.accessory.context.config.type === 'HEATING') {
       if (!batteryService) {
         Logger.info('Adding Battery service', this.accessory.displayName);
-        batteryService = this.accessory.addService(this.api.hap.Service.BatteryService);
+        batteryService = this.accessory.addService(this.api.hap.Service.Battery);
       }
       batteryService.setCharacteristic(
         this.api.hap.Characteristic.ChargingState,
@@ -71,15 +68,6 @@ class HeaterCoolerAccessory {
         Logger.info('Removing Battery service', this.accessory.displayName);
         this.accessory.removeService(batteryService);
       }
-    }
-
-    //Handle AirQuality
-    if (this.accessory.context.config.airQuality && this.accessory.context.config.type !== 'HOT_WATER') {
-      if (!service.testCharacteristic(this.api.hap.Characteristic.AirQuality))
-        service.addCharacteristic(this.api.hap.Characteristic.AirQuality);
-    } else {
-      if (service.testCharacteristic(this.api.hap.Characteristic.AirQuality))
-        service.removeCharacteristic(service.getCharacteristic(this.api.hap.Characteristic.AirQuality));
     }
 
     //Handle DelaySwitch
@@ -162,8 +150,8 @@ class HeaterCoolerAccessory {
           ? 30
           : 86
         : this.accessory.context.config.temperatureUnit === 'CELSIUS'
-        ? 5
-        : 41;
+          ? 5
+          : 41;
 
     let maxValue =
       this.accessory.context.config.type === 'HOT_WATER'
@@ -171,8 +159,8 @@ class HeaterCoolerAccessory {
           ? 65
           : 149
         : this.accessory.context.config.temperatureUnit === 'CELSIUS'
-        ? 25
-        : 77;
+          ? 25
+          : 77;
 
     minValue = this.accessory.context.config.minValue < maxValue ? this.accessory.context.config.minValue : minValue;
 
@@ -182,9 +170,9 @@ class HeaterCoolerAccessory {
 
     let minStep = parseFloat(
       (this.accessory.context.config.minStep &&
-      !isNaN(this.accessory.context.config.minStep) &&
-      this.accessory.context.config.minStep > 0 &&
-      this.accessory.context.config.minStep <= 1
+        !isNaN(this.accessory.context.config.minStep) &&
+        this.accessory.context.config.minStep > 0 &&
+        this.accessory.context.config.minStep <= 1
         ? parseFloat(this.accessory.context.config.minStep)
         : 1
       ).toFixed(2)
@@ -329,5 +317,3 @@ class HeaterCoolerAccessory {
     }, 10 * 60 * 1000);
   }
 }
-
-module.exports = HeaterCoolerAccessory;
