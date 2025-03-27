@@ -1,8 +1,10 @@
 import DeviceHandler from './helper/handler.js';
 import Logger from './helper/logger.js';
-import packageFile from '../package.json' with { type: 'json' };
 import TadoConfig from './tado/tado-config.js';
 import fakeGatoHistory from 'fakegato-history';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from "url";
+import { join, dirname } from "path";
 
 // Accessories
 import ContactAccessory from './accessories/contact.js';
@@ -48,9 +50,8 @@ function TadoPlatform(log, config, api) {
   this.api = api;
   this.accessories = [];
   this.config = config;
-
   this.user = [];
-
+  this.packageJson = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf-8"));
   const storagePath = this.api.user.storagePath();
 
   //setup config/plugin
@@ -223,7 +224,7 @@ TadoPlatform.prototype = {
     AccessoryInformation.setCharacteristic(this.api.hap.Characteristic.Manufacturer, manufacturer)
       .setCharacteristic(this.api.hap.Characteristic.Model, model)
       .setCharacteristic(this.api.hap.Characteristic.SerialNumber, serialNumber)
-      .setCharacteristic(this.api.hap.Characteristic.FirmwareRevision, packageFile.version);
+      .setCharacteristic(this.api.hap.Characteristic.FirmwareRevision, this.packageJson.version);
 
     const tado = device.tado;
 

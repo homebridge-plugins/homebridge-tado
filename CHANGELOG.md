@@ -1,5 +1,8 @@
 # Changelog
 
+## v7.5.3 - 2025-03-27
+- Fixed crash on startup for node 20 (unexpected token 'with')
+
 ## v7.5.2 - 2025-03-27
 - Update plugin name to homebridge tado
 
