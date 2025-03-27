@@ -1,5 +1,8 @@
 # Changelog
 
+## v7.5.2 - 2025-03-27
+- Update plugin name to homebridge tado
+
 ## v7.5.1 - 2025-03-26
 - Fixed package.json required node version
 
