@@ -6,9 +6,8 @@
  *
  **/
 
-import TadoPlatformModule from './src/platform.js';
+import TadoPlatform from './src/platform.js';
 
 export default function (homebridge) {
-  const TadoPlatform = TadoPlatformModule(homebridge);
-  homebridge.registerPlatform('TadoPlatform', TadoPlatform);
+  homebridge.registerPlatform('TadoPlatform', TadoPlatform(homebridge));
 };

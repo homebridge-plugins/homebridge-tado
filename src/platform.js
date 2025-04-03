@@ -26,44 +26,37 @@ import EveTypes from './types/eve.js';
 
 const PLUGIN_NAME = '@homebridge-plugins/homebridge-tado';
 const PLATFORM_NAME = 'TadoPlatform';
-
-var Accessory, UUIDGen, FakeGatoHistoryService;
+let Accessory, UUIDGen, FakeGatoHistoryService;
 
 export default function (homebridge) {
   Accessory = homebridge.platformAccessory;
   UUIDGen = homebridge.hap.uuid;
-
   return TadoPlatform;
-};
-
-function TadoPlatform(log, config, api) {
-  if (!api || !config) return;
-
-  //init logger
-  Logger.init(log, config.debug);
-
-  //init types/fakegato
-  CustomTypes.registerWith(api.hap);
-  EveTypes.registerWith(api.hap);
-  FakeGatoHistoryService = fakeGatoHistory(api);
-
-  this.api = api;
-  this.accessories = [];
-  this.config = config;
-  this.user = [];
-  this.packageJson = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf-8"));
-  const storagePath = this.api.user.storagePath();
-
-  //setup config/plugin
-  this.setupPlugin(storagePath);
-
-  if (!this.user.length) this.setupConfig(storagePath);
-
-  this.api.on('didFinishLaunching', this.didFinishLaunching.bind(this));
 }
 
-TadoPlatform.prototype = {
-  setupPlugin: async function (storagePath) {
+class TadoPlatform {
+  constructor(log, config, api) {
+    if (!api || !config) return;
+
+    Logger.init(log, config.debug);
+    CustomTypes.registerWith(api.hap);
+    EveTypes.registerWith(api.hap);
+    FakeGatoHistoryService = fakeGatoHistory(api);
+
+    this.api = api;
+    this.accessories = [];
+    this.config = config;
+    this.user = [];
+    this.packageJson = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf-8"));
+    const storagePath = this.api.user.storagePath();
+
+    this.setupPlugin(storagePath);
+    if (!this.user.length) this.setupConfig(storagePath);
+
+    this.api.on('didFinishLaunching', this.didFinishLaunching.bind(this));
+  }
+
+  async setupPlugin(storagePath) {
     try {
       if (this.config.user && this.config.user.length) {
         for (const credentials of this.config.user) {
@@ -141,11 +134,9 @@ TadoPlatform.prototype = {
       Logger.error('An error occured during setting up plugin!');
       Logger.error(err);
     }
+  }
 
-    return;
-  },
-
-  setupConfig: function (storagePath) {
+  setupConfig(storagePath) {
     try {
       const { config, devices, deviceHandler, telegram } = TadoConfig.setup(this.config, UUIDGen, storagePath);
 
@@ -157,11 +148,9 @@ TadoPlatform.prototype = {
       Logger.error('An error occured during setting up plugin!');
       Logger.error(err);
     }
+  }
 
-    return;
-  },
-
-  didFinishLaunching: function () {
+  didFinishLaunching() {
     if (this.user.length) return;
 
     for (const entry of this.devices.entries()) {
@@ -206,9 +195,9 @@ TadoPlatform.prototype = {
       const deviceHandler = DeviceHandler(this.api, accessories, config, tado, this.telegram);
       deviceHandler.getStates();
     }
-  },
+  }
 
-  setupAccessory: function (accessory, device) {
+  setupAccessory(accessory, device) {
     accessory.on('identify', () => {
       Logger.info('Identify requested.', accessory.displayName);
     });
@@ -296,9 +285,9 @@ TadoPlatform.prototype = {
     }
 
     return;
-  },
+  }
 
-  configureAccessory: function (accessory, refresh) {
+  configureAccessory(accessory, refresh) {
     if (!this.user.length) {
       const device = this.devices.get(accessory.UUID);
 
@@ -309,9 +298,9 @@ TadoPlatform.prototype = {
     }
 
     if (!refresh) this.accessories.push(accessory);
-  },
+  }
 
-  removeAccessory: function (accessory) {
+  removeAccessory(accessory) {
     Logger.info('Removing accessory...', accessory.displayName);
 
     let accessories = this.accessories.map((cachedAccessory) => {
@@ -325,5 +314,5 @@ TadoPlatform.prototype = {
     });
 
     this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
-  },
-};
+  }
+}
