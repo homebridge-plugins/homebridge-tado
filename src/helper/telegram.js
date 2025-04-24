@@ -1,4 +1,5 @@
 import Logger from './logger.js';
+import FormData from 'form-data';
 
 export default class Telegram {
   constructor(options, messages) {
