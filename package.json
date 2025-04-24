@@ -1,6 +1,6 @@
 {
   "name": "@homebridge-plugins/homebridge-tado",
-  "version": "7.5.3",
+  "version": "7.6.0",
   "description": "Homebridge plugin for controlling tado° devices.",
   "main": "index.js",
   "scripts": {

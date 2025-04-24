@@ -1,5 +1,10 @@
 # Changelog
 
+## v7.6.0 - 2025-04-24
+- Fixed crash on telegram event (#164)
+- Rewrote Tado-Platform as ES6 class
+- Updated dependencies
+
 ## v7.5.3 - 2025-03-27
 - Fixed crash on startup for node 20 (unexpected token 'with')
 
