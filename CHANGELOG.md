@@ -1,5 +1,8 @@
 # Changelog
 
+## v8.0.0-beta.0 - 2025-06-05
+- Add support for tado AC devices
+
 ## v7.6.0 - 2025-04-24
 - Fixed crash on telegram event (#164)
 - Rewrote Tado-Platform as ES6 class
