@@ -528,7 +528,7 @@ export default {
             home.zones.forEach((zone) => {
               if (zone.active) {
                 let valid_boilerTypes = ['SWITCH', 'FAUCET'];
-                let valid_zoneTypes = ['HEATING', 'HOT_WATER'];
+                let valid_zoneTypes = ['HEATING', 'HOT_WATER', 'AIR_CONDITIONING'];
                 let valid_modes = ['MANUAL', 'AUTO', 'TIMER', 'CUSTOM'];
 
                 if (!zone.name) {
@@ -545,7 +545,7 @@ export default {
                 if (!error) {
                   activeZones += 1;
 
-                  const name = home.name + ' ' + zone.name + (zone.type === 'HEATING' ? ' Heater' : ' Boiler');
+                  const name = home.name + ' ' + zone.name + (zone.type === 'HEATING' ? ' Heater' : zone.type === 'AIR_CONDITIONING' ? ' AC' : ' Boiler');
 
                   const uuid = UUIDGen.generate(name);
 
@@ -564,6 +564,8 @@ export default {
                         ? zone.easyMode
                           ? 'zone-heatercooler'
                           : 'zone-thermostat'
+                        : zone.type === 'AIR_CONDITIONING'
+                          ? 'zone-heatercooler-ac'
                         : valid_boilerTypes.includes(zone.accTypeBoiler) && zone.accTypeBoiler === 'FAUCET'
                           ? 'zone-faucet'
                           : 'zone-switch';

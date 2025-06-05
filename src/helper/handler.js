@@ -20,7 +20,8 @@ export default (api, accessories, config, tado, telegram) => {
       switch (accessory.context.config.subtype) {
         case 'zone-thermostat':
         case 'zone-heatercooler':
-        case 'zone-heatercooler-boiler': {
+        case 'zone-heatercooler-boiler':
+        case 'zone-heatercooler-ac': {
           let power, temp, clear;
 
           let service =
@@ -32,6 +33,7 @@ export default (api, accessories, config, tado, telegram) => {
 
           if (
             accessory.context.config.subtype !== 'zone-heatercooler-boiler' &&
+            accessory.context.config.subtype !== 'zone-heatercooler-ac' &&
             !accessory.context.config.autoOffDelay &&
             accessory.context.config.delaySwitch &&
             accessory.context.delaySwitch &&
@@ -53,14 +55,30 @@ export default (api, accessories, config, tado, telegram) => {
                   ? (accessory.context.config.modeTimer || 30) * 60
                   : accessory.context.config.mode;
 
-              await tado.setZoneOverlay(
-                config.homeId,
-                accessory.context.config.zoneId,
-                power,
-                temp,
-                mode,
-                accessory.context.config.temperatureUnit
-              );
+              // Use AC-specific overlay for AIR_CONDITIONING zones
+              if (accessory.context.config.type === 'AIR_CONDITIONING') {
+                
+                await tado.setACZoneOverlay(
+                  config.homeId,
+                  accessory.context.config.zoneId,
+                  power,
+                  'COOL', // Default AC mode for OFF state
+                  temp,
+                  null, // No fan speed for AC units
+                  'OFF', // Default swing
+                  mode,
+                  accessory.context.config.temperatureUnit
+                );
+              } else {
+                await tado.setZoneOverlay(
+                  config.homeId,
+                  accessory.context.config.zoneId,
+                  power,
+                  temp,
+                  mode,
+                  accessory.context.config.temperatureUnit
+                );
+              }
             } else {
               let mode =
                 accessory.context.config.mode === 'TIMER'
@@ -102,14 +120,31 @@ export default (api, accessories, config, tado, telegram) => {
                     ? 'MANUAL'
                     : mode;
 
-                await tado.setZoneOverlay(
-                  config.homeId,
-                  accessory.context.config.zoneId,
-                  power,
-                  temp,
-                  mode,
-                  accessory.context.config.temperatureUnit
-                );
+                // Use AC-specific overlay for AIR_CONDITIONING zones
+                if (accessory.context.config.type === 'AIR_CONDITIONING') {
+                  let acMode = value === 1 ? 'HEAT' : value === 2 ? 'COOL' : 'COOL';
+                  
+                  await tado.setACZoneOverlay(
+                    config.homeId,
+                    accessory.context.config.zoneId,
+                    power,
+                    acMode,
+                    temp,
+                    null, // No fan speed for AC units
+                    'OFF', // Default swing
+                    mode,
+                    accessory.context.config.temperatureUnit
+                  );
+                } else {
+                  await tado.setZoneOverlay(
+                    config.homeId,
+                    accessory.context.config.zoneId,
+                    power,
+                    temp,
+                    mode,
+                    accessory.context.config.temperatureUnit
+                  );
+                }
 
                 delayTimer[accessory.displayName] = null;
               }, timer * 1000);
@@ -150,14 +185,73 @@ export default (api, accessories, config, tado, telegram) => {
               temp = parseFloat(value.toFixed(2));
             }
 
-            await tado.setZoneOverlay(
-              config.homeId,
-              accessory.context.config.zoneId,
-              power,
-              temp,
-              mode,
-              accessory.context.config.temperatureUnit
-            );
+            // Use AC-specific overlay for AIR_CONDITIONING zones
+            if (accessory.context.config.type === 'AIR_CONDITIONING') {
+              
+              // Map HomeKit target state to Tado AC mode
+              let acMode = 'COOL'; // Default to COOL
+              
+              // Get current target state from HeaterCooler service for proper mode detection
+              let heaterCoolerService = accessory.getService(api.hap.Service.HeaterCooler);
+              if (heaterCoolerService) {
+                let targetState = heaterCoolerService.getCharacteristic(api.hap.Characteristic.TargetHeaterCoolerState).value;
+                
+                // Map HomeKit target states to Tado AC modes
+                // 1 = Heat, 2 = Cool, 3 = Auto
+                switch (targetState) {
+                  case 1:
+                    acMode = 'HEAT';
+                    break;
+                  case 2:
+                    acMode = 'COOL';
+                    break;
+                  case 3:
+                  default:
+                    acMode = 'AUTO';
+                    break;
+                }
+                
+                // For temperature changes, use the appropriate threshold characteristic
+                if (![0, 1, 3].includes(value)) {
+                  // This is a temperature change, use the appropriate temperature based on mode
+                  if (acMode === 'HEAT' && heaterCoolerService.testCharacteristic(api.hap.Characteristic.HeatingThresholdTemperature)) {
+                    temp = parseFloat(heaterCoolerService.getCharacteristic(api.hap.Characteristic.HeatingThresholdTemperature).value.toFixed(2));
+                  } else if (acMode === 'COOL' && heaterCoolerService.testCharacteristic(api.hap.Characteristic.CoolingThresholdTemperature)) {
+                    temp = parseFloat(heaterCoolerService.getCharacteristic(api.hap.Characteristic.CoolingThresholdTemperature).value.toFixed(2));
+                  } else {
+                    // Fallback to cooling threshold, then heating threshold
+                    if (heaterCoolerService.testCharacteristic(api.hap.Characteristic.CoolingThresholdTemperature)) {
+                      temp = parseFloat(heaterCoolerService.getCharacteristic(api.hap.Characteristic.CoolingThresholdTemperature).value.toFixed(2));
+                    } else if (heaterCoolerService.testCharacteristic(api.hap.Characteristic.HeatingThresholdTemperature)) {
+                      temp = parseFloat(heaterCoolerService.getCharacteristic(api.hap.Characteristic.HeatingThresholdTemperature).value.toFixed(2));
+                    }
+                  }
+                } else {
+                  // This is a state change - use the mapped AC mode
+                }
+              }
+              
+              await tado.setACZoneOverlay(
+                config.homeId,
+                accessory.context.config.zoneId,
+                power,
+                acMode,
+                temp,
+                null, // No fan speed for AC units
+                'OFF', // Default swing
+                mode,
+                accessory.context.config.temperatureUnit
+              );
+            } else {
+              await tado.setZoneOverlay(
+                config.homeId,
+                accessory.context.config.zoneId,
+                power,
+                temp,
+                mode,
+                accessory.context.config.temperatureUnit
+              );
+            }
           }
 
           break;
@@ -177,14 +271,30 @@ export default (api, accessories, config, tado, telegram) => {
               ? (accessory.context.config.modeTimer || 30) * 60
               : accessory.context.config.mode;
 
-          await tado.setZoneOverlay(
-            config.homeId,
-            accessory.context.config.zoneId,
-            power,
-            temp,
-            mode,
-            accessory.context.config.temperatureUnit
-          );
+          // Use AC-specific overlay for AIR_CONDITIONING zones
+          if (accessory.context.config.type === 'AIR_CONDITIONING') {
+            
+            await tado.setACZoneOverlay(
+              config.homeId,
+              accessory.context.config.zoneId,
+              power,
+              'COOL', // Default AC mode for switch/faucet
+              temp,
+              null, // No fan speed for AC units
+              'OFF', // Default swing
+              mode,
+              accessory.context.config.temperatureUnit
+            );
+          } else {
+            await tado.setZoneOverlay(
+              config.homeId,
+              accessory.context.config.zoneId,
+              power,
+              temp,
+              mode,
+              accessory.context.config.temperatureUnit
+            );
+          }
 
           break;
         }
@@ -466,7 +576,8 @@ export default (api, accessories, config, tado, telegram) => {
         }
 
         case 'zone-heatercooler':
-        case 'zone-heatercooler-boiler': {
+        case 'zone-heatercooler-boiler':
+        case 'zone-heatercooler-ac': {
           let currentState = accessory
             .getService(api.hap.Service.HeaterCooler)
             .getCharacteristic(api.hap.Characteristic.CurrentHeaterCoolerState).value;
@@ -696,7 +807,7 @@ export default (api, accessories, config, tado, telegram) => {
               ? zoneWithID.devices.filter(
                 (device) =>
                   device &&
-                  zone.type === 'HEATING' &&
+                  (zone.type === 'HEATING' || zone.type === 'AIR_CONDITIONING') &&
                   typeof device.batteryState === 'string' &&
                   !device.batteryState.includes('NORMAL')
               ).length
@@ -756,7 +867,9 @@ export default (api, accessories, config, tado, telegram) => {
           const thermoAccessory = accessories.filter(
             (acc) =>
               acc &&
-              (acc.context.config.subtype === 'zone-thermostat' || acc.context.config.subtype === 'zone-heatercooler')
+              (acc.context.config.subtype === 'zone-thermostat' || 
+               acc.context.config.subtype === 'zone-heatercooler' ||
+               acc.context.config.subtype === 'zone-heatercooler-ac')
           );
 
           if (thermoAccessory.length) {
@@ -844,28 +957,66 @@ export default (api, accessories, config, tado, telegram) => {
             });
           }
         } else {
+          // Non-HEATING zones (AIR_CONDITIONING, HOT_WATER, etc.)
+          battery = zone.battery === 'NORMAL' ? 100 : 10;
+
+          if (zoneState.sensorDataPoints.humidity) {
+            humidity = zoneState.sensorDataPoints.humidity.percentage;
+          }
+
+          // Get current temperature from sensor data (same as HEATING zones)
+          if (zoneState.sensorDataPoints.insideTemperature) {
+            currentTemp =
+              config.temperatureUnit === 'FAHRENHEIT'
+                ? zoneState.sensorDataPoints.insideTemperature.fahrenheit
+                : zoneState.sensorDataPoints.insideTemperature.celsius;
+          }
+
           if (zoneState.setting.power === 'ON') {
             active = 1;
-            currentState = zoneState.overlayType === null ? 1 : 2;
+            
+            // Get target temperature from setting
+            targetTemp =
+              zoneState.setting.temperature !== null && zoneState.setting.temperature
+                ? config.temperatureUnit === 'FAHRENHEIT'
+                  ? zoneState.setting.temperature.fahrenheit
+                  : zoneState.setting.temperature.celsius
+                : undefined;
+
+            // Enhanced AC state handling
+            if (zone.type === 'AIR_CONDITIONING') {
+              const acMode = zoneState.setting.mode || 'COOL';
+              tempEqual = currentTemp && targetTemp ? Math.abs(currentTemp - targetTemp) < 0.5 : false;
+              
+              // Map AC modes to HomeKit states
+              switch (acMode.toUpperCase()) {
+                case 'HEAT':
+                  targetState = 1; // Heating
+                  currentState = tempEqual ? 1 : (currentTemp < targetTemp ? 2 : 1); // Idle or Heating
+                  break;
+                case 'COOL':
+                case 'AUTO':
+                default:
+                  targetState = 2; // Cooling
+                  currentState = tempEqual ? 1 : (currentTemp > targetTemp ? 3 : 1); // Idle or Cooling
+                  break;
+              }
+            } else {
+              // Non-AC zones (HOT_WATER, etc.)
+              currentState = zoneState.overlayType === null ? 1 : 2;
+              targetState = 1;
+            }
           } else {
             active = 0;
             currentState = 0;
+            targetTemp = undefined;
+            targetState = zone.type === 'AIR_CONDITIONING' ? 2 : 1; // Default to cooling for AC, heating for others
           }
-
-          targetState = 1;
-
-          currentTemp =
-            zoneState.setting.temperature !== null
-              ? config.temperatureUnit === 'FAHRENHEIT'
-                ? zoneState.setting.temperature.fahrenheit
-                : zoneState.setting.temperature.celsius
-              : undefined;
-
-          targetTemp = active && currentTemp ? currentTemp : undefined;
 
           //Thermostat/HeaterCooler
           const heaterAccessory = accessories.filter(
-            (acc) => acc && acc.context.config.subtype === 'zone-heatercooler-boiler'
+            (acc) => acc && (acc.context.config.subtype === 'zone-heatercooler-boiler' || 
+                            acc.context.config.subtype === 'zone-heatercooler-ac')
           );
           const switchAccessory = accessories.filter((acc) => acc && acc.context.config.subtype === 'zone-switch');
           const faucetAccessory = accessories.filter((acc) => acc && acc.context.config.subtype === 'zone-faucet');
@@ -880,6 +1031,7 @@ export default (api, accessories, config, tado, telegram) => {
                 let characteristicCurrentState = api.hap.Characteristic.CurrentHeaterCoolerState;
                 let characteristicTargetState = api.hap.Characteristic.TargetHeaterCoolerState;
                 let characteristicTargetTempHeating = api.hap.Characteristic.HeatingThresholdTemperature;
+                let characteristicTargetTempCooling = api.hap.Characteristic.CoolingThresholdTemperature;
 
                 service.getCharacteristic(characteristicActive).updateValue(active);
 
@@ -887,14 +1039,32 @@ export default (api, accessories, config, tado, telegram) => {
 
                 service.getCharacteristic(characteristicTargetState).updateValue(targetState);
 
+                // Set current temperature from sensor data
                 if (!isNaN(currentTemp) || acc.context.currentTemp) {
                   if (!isNaN(currentTemp)) acc.context.currentTemp = currentTemp; //store current temp in config
 
                   service.getCharacteristic(characteristicCurrentTemp).updateValue(acc.context.currentTemp);
                 }
 
+                // Set target temperature for both heating and cooling
                 if (!isNaN(targetTemp)) {
-                  service.getCharacteristic(characteristicTargetTempHeating).updateValue(targetTemp);
+                  // For AC zones, set temperature based on the mode
+                  if (zone.type === 'AIR_CONDITIONING') {
+                    // Always set both characteristics but log which one is active
+                    service.getCharacteristic(characteristicTargetTempHeating).updateValue(targetTemp);
+                    service.getCharacteristic(characteristicTargetTempCooling).updateValue(targetTemp);
+                  } else {
+                    // Non-AC zones (like boiler/hot water)
+                    service.getCharacteristic(characteristicTargetTempHeating).updateValue(targetTemp);
+                    service.getCharacteristic(characteristicTargetTempCooling).updateValue(targetTemp);
+                  }
+                }
+
+                // Fan speed polling removed for AIR_CONDITIONING zones
+
+                // Update humidity for all zones that support it
+                if (!isNaN(humidity) && service.testCharacteristic(api.hap.Characteristic.CurrentRelativeHumidity)) {
+                  service.getCharacteristic(api.hap.Characteristic.CurrentRelativeHumidity).updateValue(humidity);
                 }
               }
             });

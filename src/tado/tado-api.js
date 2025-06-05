@@ -1,4 +1,3 @@
-
 import Logger from '../helper/logger.js';
 import got from 'got';
 import path from 'path';
@@ -200,26 +199,26 @@ export default class Tado {
       },
     };
 
-    if (Object.keys(data).length) config.json = data;
+    // Only add data to config for non-GET methods and when data has content
+    if (data && typeof data === 'object' && Object.keys(data).length > 0 && method !== 'GET') {
+      config.json = data;
+    }
 
     if (Object.keys(params).length) config.searchParams = params;
 
-    const response = await got(tadoLink + path, config);
-
-    Logger.debug(
-      'API request ' +
-      method +
-      ' ' +
-      path +
-      ' ' +
-      (data && Object.keys(data).length ? JSON.stringify(data) + ' <success>' : '<success>'),
-      this.name
-    );
-
-    if (!blockLog)
-      Logger.debug('API request ' + method + ' ' + path + ' <response> ' + JSON.stringify(response.body), this.name);
-
-    return response.body;
+    try {
+      const response = await got(tadoLink + path, config);
+      return response.body;
+    } catch (error) {
+      Logger.error(`API Request [${method} ${path}] - FAILED: ${error.message}`, this.name);
+      if (error.response) {
+        Logger.error(`HTTP Status: ${error.response.statusCode} - Response: ${JSON.stringify(error.response.body)}`, this.name);
+      }
+      if (error.request) {
+        Logger.error(`Request failed - Config: ${JSON.stringify(config)}`, this.name);
+      }
+      throw error;
+    }
   }
 
   async fullAuthentication() {
@@ -348,11 +347,12 @@ export default class Tado {
       termination: {},
     };
 
-    if (power.toLowerCase() == 'on') {
+    // Fix: Use case-insensitive comparison and handle both 'ON' and 'on'
+    if (power && power.toString().toLowerCase() === 'on') {
       config.setting.power = 'ON';
 
       if (temperature && !isNaN(temperature)) {
-        if (tempUnit.toLowerCase() === 'fahrenheit') temperature = ((temperature - 32) * 5) / 9;
+        if (tempUnit && tempUnit.toLowerCase() === 'fahrenheit') temperature = ((temperature - 32) * 5) / 9;
 
         config.setting.temperature = { celsius: temperature };
       } else {
@@ -376,6 +376,93 @@ export default class Tado {
     }
 
     return this.apiCall(`/api/v2/homes/${home_id}/zones/${zone_id}/overlay`, 'PUT', config);
+  }
+
+  async setACZoneOverlay(home_id, zone_id, power, mode, temperature, fanSpeed, swing, termination, tempUnit) {
+    // Note: fanSpeed parameter is kept for compatibility but ignored for AIR_CONDITIONING units
+    
+    // Get current zone state to understand the structure
+    let zone_state;
+    try {
+      zone_state = await this.getZoneState(home_id, zone_id);
+    } catch (error) {
+      Logger.warn(`Could not get zone state: ${error.message}`, this.name);
+    }
+    
+    // Preserve existing termination settings if present
+    const config = {
+      setting: zone_state && zone_state.setting ? { ...zone_state.setting } : {},
+      termination: zone_state && zone_state.overlay && zone_state.overlay.termination ? { ...zone_state.overlay.termination } : {},
+    };
+
+    // Fix: Use case-insensitive comparison and handle both 'ON' and 'on'
+    if (power && power.toString().toLowerCase() === 'on') {
+      config.setting.power = 'ON';
+      config.setting.mode = mode || 'COOL';
+
+      if (temperature && !isNaN(temperature)) {
+        if (tempUnit && tempUnit.toLowerCase() === 'fahrenheit') {
+          temperature = ((temperature - 32) * 5) / 9;
+        }
+        
+        config.setting.temperature = { 
+          celsius: temperature,
+          fahrenheit: Math.round((temperature * 1.8) + 32)
+        };
+      }
+
+      // Fan speed not supported for AIR_CONDITIONING units
+
+      // Set swing if provided
+      if (swing !== undefined && swing !== null) {
+        config.setting.swing = swing;
+      }
+    } else {
+      config.setting.power = 'OFF';
+    }
+
+    // Handle termination settings
+    if (!isNaN(parseInt(termination))) {
+      config.termination.type = 'TIMER';
+      config.termination.durationInSeconds = termination;
+    } else if (termination && termination.toLowerCase() == 'auto') {
+      config.termination.type = 'TADO_MODE';
+    } else if (termination && termination.toLowerCase() == 'next_time_block') {
+      config.termination.type = 'MANUAL';
+      config.termination.typeSkillBasedApp = 'NEXT_TIME_BLOCK';
+    } else {
+      config.termination.type = 'MANUAL';
+    }
+    
+    // Validate that config is not empty before making API call
+    if (!config.setting || Object.keys(config.setting).length === 0) {
+      Logger.error(`Config setting is empty! Power: ${power}, Mode: ${mode}, Temp: ${temperature}`, this.name);
+      throw new Error('AC overlay configuration is empty');
+    }
+
+    // Call API with full AC config
+    // Build payload based on AirConditioningZoneSettingsBase schema
+    const payload = {
+      setting: {
+        type: 'AIR_CONDITIONING',
+        power: config.setting.power,
+        mode: config.setting.mode,
+        // Set temperature if ON
+        ...(config.setting.power === 'ON' && config.setting.temperature && config.setting.temperature.celsius !== undefined
+          ? { temperature: { celsius: config.setting.temperature.celsius } }
+          : {}),
+        // Fan speed removed for AIR_CONDITIONING units
+      },
+      termination: {
+        // AIR_CONDITIONING does not have "type" key in termination
+        ...(config.termination.type === 'TIMER' && config.termination.durationInSeconds !== undefined
+          ? { durationInSeconds: config.termination.durationInSeconds }
+          : {}),
+        ...(config.termination.typeSkillBasedApp ? { typeSkillBasedApp: config.termination.typeSkillBasedApp } : {}),
+      },
+    };
+    
+    return this.apiCall(`/api/v2/homes/${home_id}/zones/${zone_id}/overlay`, 'PUT', payload);
   }
 
   async setDeviceTemperatureOffset(device_id, temperatureOffset) {

@@ -126,7 +126,7 @@ export default class HeaterCoolerAccessory {
     if (!service.testCharacteristic(this.api.hap.Characteristic.HeatingThresholdTemperature))
       service.addCharacteristic(this.api.hap.Characteristic.HeatingThresholdTemperature);
 
-    if (this.accessory.context.config.type === 'HEATING') {
+    if (this.accessory.context.config.type === 'HEATING' || this.accessory.context.config.type === 'AIR_CONDITIONING') {
       if (!service.testCharacteristic(this.api.hap.Characteristic.CoolingThresholdTemperature))
         service.addCharacteristic(this.api.hap.Characteristic.CoolingThresholdTemperature);
 
@@ -195,11 +195,20 @@ export default class HeaterCoolerAccessory {
 
     service.getCharacteristic(this.api.hap.Characteristic.TargetHeaterCoolerState).updateValue(1);
 
-    service.getCharacteristic(this.api.hap.Characteristic.TargetHeaterCoolerState).setProps({
-      maxValue: 1,
-      minValue: 1,
-      validValues: [1],
-    });
+    // For AIR_CONDITIONING, support both heating and cooling modes
+    if (this.accessory.context.config.type === 'AIR_CONDITIONING') {
+      service.getCharacteristic(this.api.hap.Characteristic.TargetHeaterCoolerState).setProps({
+        maxValue: 2,
+        minValue: 1,
+        validValues: [1, 2], // 1 = Heat, 2 = Cool
+      });
+    } else {
+      service.getCharacteristic(this.api.hap.Characteristic.TargetHeaterCoolerState).setProps({
+        maxValue: 1,
+        minValue: 1,
+        validValues: [1],
+      });
+    }
 
     service.getCharacteristic(this.api.hap.Characteristic.CurrentTemperature).setProps({
       minValue: -255,
@@ -234,6 +243,10 @@ export default class HeaterCoolerAccessory {
 
     if (!service.testCharacteristic(this.api.hap.Characteristic.ValvePosition))
       service.addCharacteristic(this.api.hap.Characteristic.ValvePosition);
+
+    // Remove RotationSpeed characteristic for all units (fan speed not supported)
+    if (service.testCharacteristic(this.api.hap.Characteristic.RotationSpeed))
+      service.removeCharacteristic(service.getCharacteristic(this.api.hap.Characteristic.RotationSpeed));
 
     this.historyService = new this.FakeGatoHistoryService('thermo', this.accessory, {
       storage: 'fs',
@@ -283,6 +296,26 @@ export default class HeaterCoolerAccessory {
         'change',
         this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
       );
+
+    // Add CoolingThresholdTemperature handler for AIR_CONDITIONING units
+    if (this.accessory.context.config.type === 'AIR_CONDITIONING') {
+      service
+        .getCharacteristic(this.api.hap.Characteristic.CoolingThresholdTemperature)
+        .onSet((value) => {
+          if (this.waitForEndValue) {
+            clearTimeout(this.waitForEndValue);
+            this.waitForEndValue = null;
+          }
+
+          this.waitForEndValue = setTimeout(() => {
+            this.deviceHandler.setStates(this.accessory, this.accessories, 'Temperature', value);
+          }, 250);
+        })
+        .on(
+          'change',
+          this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
+        );
+    }
 
     service
       .getCharacteristic(this.api.hap.Characteristic.ValvePosition)
