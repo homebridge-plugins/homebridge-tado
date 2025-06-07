@@ -53,6 +53,7 @@ After [Homebridge](https://github.com/nfarina/homebridge) has been installed:
 - [Configuration](#configuration)
   - [Thermostat](#thermostat)
     -  [Open Window](#open-window)
+  - [Air Conditioning](#air-conditioning)
   - [Hot Water](#hot-water)
   - [Presence](#presence)
   - [Weather](#weather)
@@ -199,6 +200,56 @@ Each zone with ``"type": "HEATING"`` also has the possibility to display "OpenWi
         "openWindowSensor": true,
         "openWindowSwitch": true
         ...
+      }
+      ...
+    ]
+  }
+  ...
+]
+```
+
+## Air Conditioning
+
+Each zone in the config.json with `"type": "AIR_CONDITIONING"` is exposed to HomeKit as a HeaterCooler accessory with the following features:
+
+- Current Mode: OFF | IDLE | HEATING | COOLING
+- Target Mode: OFF | HEATING | COOLING | AUTO
+- Current Temperature
+- Target Temperature (Heating/Cooling with CoolingThresholdTemperature support)
+- Built-in humidity sensor
+- Separate Humidity (if `"separateHumidity": true`)
+- Separate Temperature Sensor (if `"separateTemperature": true`)
+- Battery state (if `"noBattery": false`)
+- Delay Switch characteristic with timer (if `"delaySwitch": true`)
+- Elgato EVE history feature (FakeGato)
+
+**AC-Specific Features**
+Air conditioning zones support both heating and cooling modes with dedicated cooling threshold temperature control. Fan speed and swing controls are handled through the Tado app, while HomeKit integration focuses on temperature and mode control for optimal compatibility. Note that the RotationSpeed characteristic is not supported for AC units.
+
+**Mode / Mode Timer**
+`mode` for the commands to be sent with. can be 'MANUAL' for manual control until ended by the user, 'AUTO' for manual control until next schedule change in tado° app OR 'TIMER' for manual control until timer ends. `modeTimer` for the `MANUAL` mode in minutes.
+
+You can also adjust the minimum temperature step `"minStep"`, minimum temperature value `"minValue"` or maximum temperature value `"maxValue"` via config.json if needed.
+
+- **minStep**: Minimum step for temperature adjustment. (Default: 1, must be between 0 - 1)
+
+```json
+"homes": [
+  {
+    "zones": [
+      {
+        "active": true,
+        "id": 45,
+        "name": "Living Room AC",
+        "type": "AIR_CONDITIONING",
+        "mode": "MANUAL",
+        "modeTimer": 30,
+        "delaySwitch": true,
+        "autoOffDelay": false,
+        "separateTemperature": false,
+        "separateHumidity": true,
+        "minStep": "1",
+        "noBattery": false
       }
       ...
     ]
