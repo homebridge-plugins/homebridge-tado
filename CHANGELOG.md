@@ -1,5 +1,8 @@
 # Changelog
 
+## v8.0.1 - 2025-06-12
+- Tado-API: Verify that refresh token is not empty before saving to file
+
 ## v8.0.0 - 2025-06-09
 - Add support for tado AC devices
 

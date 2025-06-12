@@ -93,7 +93,7 @@ export default class Tado {
         responseType: "json"
       });
       const { access_token, refresh_token } = response.body;
-      if (!access_token) throw new Error("Empty access token.");
+      if (!access_token || !refresh_token) throw new Error("Empty access/refresh token.");
       await fs.writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
       this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
     } catch (error) {
@@ -133,7 +133,7 @@ export default class Tado {
       }
       if (tokenResponse?.body) {
         const { access_token, refresh_token } = tokenResponse.body;
-        if (access_token) {
+        if (access_token && refresh_token) {
           await fs.writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
           this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
           Logger.info("Authentication successful!");
@@ -165,7 +165,7 @@ export default class Tado {
     throw new Error(`Failed to load from external file after ${maxRetries} attempts.`);
   }
 
-  async apiCall(path, method = 'GET', data = {}, params = {}, tado_url_dif, blockLog) {
+  async apiCall(path, method = 'GET', data = {}, params = {}, tado_url_dif) {
     Logger.debug('Get access token...', this.name);
     const access_token = await this.getToken();
 
@@ -380,7 +380,7 @@ export default class Tado {
 
   async setACZoneOverlay(home_id, zone_id, power, mode, temperature, fanSpeed, swing, termination, tempUnit) {
     // Note: fanSpeed parameter is kept for compatibility but ignored for AIR_CONDITIONING units
-    
+
     // Get current zone state to understand the structure
     let zone_state;
     try {
@@ -388,7 +388,7 @@ export default class Tado {
     } catch (error) {
       Logger.warn(`Could not get zone state: ${error.message}`, this.name);
     }
-    
+
     // Preserve existing termination settings if present
     const config = {
       setting: zone_state && zone_state.setting ? { ...zone_state.setting } : {},
@@ -404,8 +404,8 @@ export default class Tado {
         if (tempUnit && tempUnit.toLowerCase() === 'fahrenheit') {
           temperature = ((temperature - 32) * 5) / 9;
         }
-        
-        config.setting.temperature = { 
+
+        config.setting.temperature = {
           celsius: temperature,
           fahrenheit: Math.round((temperature * 1.8) + 32)
         };
@@ -433,7 +433,7 @@ export default class Tado {
     } else {
       config.termination.type = 'MANUAL';
     }
-    
+
     // Validate that config is not empty before making API call
     if (!config.setting || Object.keys(config.setting).length === 0) {
       Logger.error(`Config setting is empty! Power: ${power}, Mode: ${mode}, Temp: ${temperature}`, this.name);
@@ -461,7 +461,7 @@ export default class Tado {
         ...(config.termination.typeSkillBasedApp ? { typeSkillBasedApp: config.termination.typeSkillBasedApp } : {}),
       },
     };
-    
+
     return this.apiCall(`/api/v2/homes/${home_id}/zones/${zone_id}/overlay`, 'PUT', payload);
   }
 
