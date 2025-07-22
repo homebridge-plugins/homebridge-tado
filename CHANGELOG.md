@@ -1,5 +1,9 @@
 # Changelog
 
+## v8.0.2 - 2025-07-22
+- Update dependencies
+- Update form-data due to vulnerability
+
 ## v8.0.1 - 2025-06-12
 - Tado-API: Verify that refresh token is not empty before saving to file
 
