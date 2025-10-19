@@ -132,6 +132,8 @@ async function createCustomSchema(home) {
   customSchemaActive = homebridge.createForm(schema, {
     name: pluginConfig[0].name,
     debug: pluginConfig[0].debug,
+    tadoApiUrl: pluginConfig[0].tadoApiUrl,
+    skipAuth: pluginConfig[0].skipAuth,
     homes: home
   });
 
@@ -139,6 +141,8 @@ async function createCustomSchema(home) {
 
     pluginConfig[0].name = config.name;
     pluginConfig[0].debug = config.debug;
+    pluginConfig[0].tadoApiUrl = config.tadoApiUrl;
+    pluginConfig[0].skipAuth = config.skipAuth;
     pluginConfig[0].homes = pluginConfig[0].homes.map(myHome => {
       if (myHome.name === config.homes.name) {
         myHome = config.homes;
@@ -279,6 +283,8 @@ async function removeDeviceFromConfig(name) {
 
       if (!pluginConfig[0].homes.length) {
         delete pluginConfig[0].debug;
+        delete pluginConfig[0].tadoApiUrl;
+        delete pluginConfig[0].skipAuth;
       }
 
       await homebridge.updatePluginConfig(pluginConfig);

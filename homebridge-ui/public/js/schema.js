@@ -560,6 +560,8 @@ const schema = {
   'layout': [
     'name',
     'debug',
+    'tadoApiUrl',
+    'skipAuth',
     'homes.name',
     'homes.polling',
     'homes.temperatureUnit',
