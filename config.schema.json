@@ -569,6 +569,8 @@
   "layout": [
     "name",
     "debug",
+    "tadoApiUrl",
+    "skipAuth",
     {
       "key": "homes",
       "type": "array",
