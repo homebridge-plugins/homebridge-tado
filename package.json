@@ -35,20 +35,20 @@
     "@homebridge/plugin-ui-utils": "^2.1.0",
     "fakegato-history": "^0.6.7",
     "form-data": "^4.0.4",
-    "fs-extra": "^11.3.0",
-    "got": "^14.4.7",
+    "fs-extra": "^11.3.2",
+    "got": "^14.6.0",
     "moment": "^2.30.1"
   },
   "devDependencies": {
-    "@babel/core": "7.28.0",
-    "@babel/eslint-parser": "7.28.0",
+    "@babel/core": "7.28.4",
+    "@babel/eslint-parser": "7.28.4",
     "@babel/eslint-plugin": "7.27.1",
-    "@eslint/js": "^9.31.0",
-    "eslint": "^9.31.0",
+    "@eslint/js": "^9.38.0",
+    "eslint": "^9.38.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-prettier": "^5.5.3",
-    "globals": "^16.3.0",
+    "eslint-plugin-prettier": "^5.5.4",
+    "globals": "^16.4.0",
     "prettier": "^3.6.2"
   }
 }
