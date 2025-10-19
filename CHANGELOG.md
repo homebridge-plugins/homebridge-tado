@@ -1,5 +1,9 @@
 # Changelog
 
+## v8.1.0 - 2025-10-19
+- Add option to use a custom tado api url
+- Add option to skip authentication for tado api
+
 ## v8.0.2 - 2025-07-22
 - Update dependencies
 - Update form-data due to vulnerability
