@@ -18,7 +18,7 @@ const deviceHandler = new Map();
 let telegram;
 
 export default {
-  add: async function (config, credentials, storagePath) {
+  add: async function (config, credentials, storagePath, tadoApiUrl, skipAuth) {
     config.homes = config.homes || [];
 
     for (const user of credentials) {
@@ -26,7 +26,7 @@ export default {
 
       const tado = new TadoApi('Configuration', {
         username: username,
-      }, storagePath);
+      }, storagePath, tadoApiUrl, skipAuth);
 
       const me = await tado.getMe();
 
@@ -152,14 +152,14 @@ export default {
     return config;
   },
 
-  resync: async function (config, credentials, storagePath) {
+  resync: async function (config, credentials, storagePath, tadoApiUrl, skipAuth) {
     const availableHomesInApis = [];
 
     for (const user of credentials) {
       //Init API with credentials
       const tado = new TadoApi('Configuration', {
         username: user.username
-      }, storagePath);
+      }, storagePath, tadoApiUrl, skipAuth);
 
       const me = await tado.getMe();
 
@@ -192,21 +192,21 @@ export default {
       if (home.name && home.username) {
         config = await this.refresh(home.name, config, {
           username: home.username
-        }, storagePath);
+        }, storagePath, tadoApiUrl, skipAuth);
       }
     }
 
-    config = await this.add(config, availableHomesInApis, storagePath);
+    config = await this.add(config, availableHomesInApis, storagePath, tadoApiUrl, skipAuth);
 
     return config;
   },
 
-  refresh: async function (currentHome, config, credentials, storagePath) {
+  refresh: async function (currentHome, config, credentials, storagePath, tadoApiUrl, skipAuth) {
     let username = credentials.username;
 
     const tado = new TadoApi('Configuration', {
       username: username
-    }, storagePath);
+    }, storagePath, tadoApiUrl, skipAuth);
 
     //Home Informations
     let home = config.homes.find((home) => home && home.name === currentHome);
@@ -499,7 +499,7 @@ export default {
           //Base Config
           const tado = new TadoApi(home.name, {
             username: home.username
-          }, storagePath);
+          }, storagePath, config.tadoApiUrl, config.skipAuth);
 
           const accessoryConfig = {
             homeId: home.id,
@@ -566,9 +566,9 @@ export default {
                           : 'zone-thermostat'
                         : zone.type === 'AIR_CONDITIONING'
                           ? 'zone-heatercooler-ac'
-                        : valid_boilerTypes.includes(zone.accTypeBoiler) && zone.accTypeBoiler === 'FAUCET'
-                          ? 'zone-faucet'
-                          : 'zone-switch';
+                          : valid_boilerTypes.includes(zone.accTypeBoiler) && zone.accTypeBoiler === 'FAUCET'
+                            ? 'zone-faucet'
+                            : 'zone-switch';
 
                     config.subtype = zone.boilerTempSupport ? 'zone-heatercooler-boiler' : config.subtype;
 

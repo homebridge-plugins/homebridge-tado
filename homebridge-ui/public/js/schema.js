@@ -545,6 +545,16 @@ const schema = {
           }
         }
       }
+    },
+    'tadoApiUrl': {
+      'title': 'Tado API URL',
+      'type': 'string',
+      'description': 'Optional: Use a custom tado api url.'
+    },
+    'skipAuth': {
+      'title': 'Skip Authentication',
+      'type': 'boolean',
+      'description': 'Optional: Skip authentication for tado api.'
     }
   },
   'layout': [

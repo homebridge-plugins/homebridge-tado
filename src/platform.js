@@ -89,15 +89,15 @@ class TadoPlatform {
                   Logger.info('Refreshing home...', foundHome[0].name);
                   this.config = await TadoConfig.refresh(foundHome[0].name, this.config, {
                     username: foundHome[0].username
-                  }, storagePath);
+                  }, storagePath, this.config.tadoApiUrl, this.config.skipAuth);
                 }
               } else {
                 Logger.info('Generating new home...', user.username);
-                this.config = await TadoConfig.add(this.config, [user], storagePath);
+                this.config = await TadoConfig.add(this.config, [user], storagePath, this.config.tadoApiUrl, this.config.skipAuth);
               }
             } else {
               Logger.info('Generating new home...', user.username);
-              this.config = await TadoConfig.add(this.config, [user], storagePath);
+              this.config = await TadoConfig.add(this.config, [user], storagePath, this.config.tadoApiUrl, this.config.skipAuth);
             }
           }
         }
@@ -114,7 +114,7 @@ class TadoPlatform {
           })
           .filter((user) => user);
 
-        await TadoConfig.store(this.config, storagePath);
+        await TadoConfig.store(this.config, storagePath, this.config.tadoApiUrl, this.config.skipAuth);
 
         Logger.info('Done!');
 

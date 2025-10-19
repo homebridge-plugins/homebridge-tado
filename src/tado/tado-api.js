@@ -8,7 +8,9 @@ const tado_auth_url = "https://login.tado.com/oauth2";
 const tado_client_id = "1bb50063-6b0c-4d11-bd99-387f4a91cc46";
 
 export default class Tado {
-  constructor(name, config, storagePath) {
+  constructor(name, config, storagePath, tadoApiUrl, skipAuth) {
+    this.tadoApiUrl = tadoApiUrl || tado_url;
+    this.skipAuth = skipAuth?.toString() === "true";
     this.name = name;
     const usesExternalTokenFile = config.username?.toLowerCase().endsWith(".json");
     this._tadoExternalTokenFilePath = usesExternalTokenFile ? config.username : undefined;
@@ -167,9 +169,9 @@ export default class Tado {
 
   async apiCall(path, method = 'GET', data = {}, params = {}, tado_url_dif) {
     Logger.debug('Get access token...', this.name);
-    const access_token = await this.getToken();
+    const access_token = this.skipAuth ? undefined : await this.getToken();
 
-    let tadoLink = tado_url_dif || tado_url;
+    let tadoLink = tado_url_dif || this.tadoApiUrl;
 
     Logger.debug('Using ' + tadoLink, this.name);
 
@@ -186,9 +188,9 @@ export default class Tado {
     let config = {
       method: method,
       responseType: 'json',
-      headers: {
+      headers: access_token ? {
         Authorization: 'Bearer ' + access_token,
-      },
+      } : undefined,
       timeout: {
         request: 30000
       },
