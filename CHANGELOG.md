@@ -1,6 +1,9 @@
 # Changelog
 
 ## v8.1.1 - 2025-10-20
+- Fix: Skip auth also for config endpoints if enabled (#176)
+
+## v8.1.1 - 2025-10-20
 - Fix config UI not working on HOOBS 5 (#177)
 
 ## v8.1.0 - 2025-10-19

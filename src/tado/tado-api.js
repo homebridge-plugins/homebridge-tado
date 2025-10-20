@@ -224,6 +224,7 @@ export default class Tado {
   }
 
   async fullAuthentication() {
+    if (this.skipAuth) return "";
     let instructions = "";
     let resolve;
     const oPromise = new Promise((res, _) => {
@@ -245,7 +246,7 @@ export default class Tado {
   }
 
   async waitForAuthentication() {
-    await this.getToken();
+    if (!this.skipAuth) await this.getToken();
     return "Authentication successful!";
   }
 
