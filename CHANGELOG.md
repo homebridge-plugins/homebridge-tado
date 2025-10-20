@@ -1,6 +1,6 @@
 # Changelog
 
-## v8.1.1 - 2025-10-20
+## v8.1.2 - 2025-10-20
 - Fix: Skip auth also for config endpoints if enabled (#176)
 
 ## v8.1.1 - 2025-10-20
