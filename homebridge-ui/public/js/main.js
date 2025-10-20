@@ -1407,7 +1407,7 @@ async function fetchDevices(credentials, refresh, resync) {
   try {
 
     //check version before load ui
-    if (window.compareVersions(window.homebridge.serverEnv.env.packageVersion, '4.34.0') < 0) {
+    if (window.homebridge.serverEnv.env && window.compareVersions(window.homebridge.serverEnv.env.packageVersion, '4.34.0') < 0) {
       await showOldSchema(true);
       return;
     }

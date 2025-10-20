@@ -1,8 +1,12 @@
 # Changelog
 
+## v8.1.1 - 2025-10-20
+- Fix config UI not working on HOOBS 5 (#177)
+
 ## v8.1.0 - 2025-10-19
-- Add option to use a custom tado api url
-- Add option to skip authentication for tado api
+- Add option to use a custom tado api url (#176)
+- Add option to skip authentication for tado api (#176)
+- Update dependencies
 
 ## v8.0.2 - 2025-07-22
 - Update dependencies
