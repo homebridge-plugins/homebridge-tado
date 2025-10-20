@@ -57,7 +57,7 @@ export default (api, accessories, config, tado, telegram) => {
 
               // Use AC-specific overlay for AIR_CONDITIONING zones
               if (accessory.context.config.type === 'AIR_CONDITIONING') {
-                
+
                 await tado.setACZoneOverlay(
                   config.homeId,
                   accessory.context.config.zoneId,
@@ -123,7 +123,7 @@ export default (api, accessories, config, tado, telegram) => {
                 // Use AC-specific overlay for AIR_CONDITIONING zones
                 if (accessory.context.config.type === 'AIR_CONDITIONING') {
                   let acMode = value === 1 ? 'HEAT' : value === 2 ? 'COOL' : 'COOL';
-                  
+
                   await tado.setACZoneOverlay(
                     config.homeId,
                     accessory.context.config.zoneId,
@@ -187,15 +187,15 @@ export default (api, accessories, config, tado, telegram) => {
 
             // Use AC-specific overlay for AIR_CONDITIONING zones
             if (accessory.context.config.type === 'AIR_CONDITIONING') {
-              
+
               // Map HomeKit target state to Tado AC mode
               let acMode = 'COOL'; // Default to COOL
-              
+
               // Get current target state from HeaterCooler service for proper mode detection
               let heaterCoolerService = accessory.getService(api.hap.Service.HeaterCooler);
               if (heaterCoolerService) {
                 let targetState = heaterCoolerService.getCharacteristic(api.hap.Characteristic.TargetHeaterCoolerState).value;
-                
+
                 // Map HomeKit target states to Tado AC modes
                 // 1 = Heat, 2 = Cool, 3 = Auto
                 switch (targetState) {
@@ -210,7 +210,7 @@ export default (api, accessories, config, tado, telegram) => {
                     acMode = 'AUTO';
                     break;
                 }
-                
+
                 // For temperature changes, use the appropriate threshold characteristic
                 if (![0, 1, 3].includes(value)) {
                   // This is a temperature change, use the appropriate temperature based on mode
@@ -230,7 +230,7 @@ export default (api, accessories, config, tado, telegram) => {
                   // This is a state change - use the mapped AC mode
                 }
               }
-              
+
               await tado.setACZoneOverlay(
                 config.homeId,
                 accessory.context.config.zoneId,
@@ -273,7 +273,7 @@ export default (api, accessories, config, tado, telegram) => {
 
           // Use AC-specific overlay for AIR_CONDITIONING zones
           if (accessory.context.config.type === 'AIR_CONDITIONING') {
-            
+
             await tado.setACZoneOverlay(
               config.homeId,
               accessory.context.config.zoneId,
@@ -725,7 +725,7 @@ export default (api, accessories, config, tado, telegram) => {
     } finally {
       setTimeout(() => {
         getStates();
-      }, config.polling * 1000);
+      }, Math.max(config.polling, 300) * 1000);
     }
   }
 
@@ -867,9 +867,9 @@ export default (api, accessories, config, tado, telegram) => {
           const thermoAccessory = accessories.filter(
             (acc) =>
               acc &&
-              (acc.context.config.subtype === 'zone-thermostat' || 
-               acc.context.config.subtype === 'zone-heatercooler' ||
-               acc.context.config.subtype === 'zone-heatercooler-ac')
+              (acc.context.config.subtype === 'zone-thermostat' ||
+                acc.context.config.subtype === 'zone-heatercooler' ||
+                acc.context.config.subtype === 'zone-heatercooler-ac')
           );
 
           if (thermoAccessory.length) {
@@ -974,7 +974,7 @@ export default (api, accessories, config, tado, telegram) => {
 
           if (zoneState.setting.power === 'ON') {
             active = 1;
-            
+
             // Get target temperature from setting
             targetTemp =
               zoneState.setting.temperature !== null && zoneState.setting.temperature
@@ -987,7 +987,7 @@ export default (api, accessories, config, tado, telegram) => {
             if (zone.type === 'AIR_CONDITIONING') {
               const acMode = zoneState.setting.mode || 'COOL';
               tempEqual = currentTemp && targetTemp ? Math.abs(currentTemp - targetTemp) < 0.5 : false;
-              
+
               // Map AC modes to HomeKit states
               switch (acMode.toUpperCase()) {
                 case 'HEAT':
@@ -1015,8 +1015,8 @@ export default (api, accessories, config, tado, telegram) => {
 
           //Thermostat/HeaterCooler
           const heaterAccessory = accessories.filter(
-            (acc) => acc && (acc.context.config.subtype === 'zone-heatercooler-boiler' || 
-                            acc.context.config.subtype === 'zone-heatercooler-ac')
+            (acc) => acc && (acc.context.config.subtype === 'zone-heatercooler-boiler' ||
+              acc.context.config.subtype === 'zone-heatercooler-ac')
           );
           const switchAccessory = accessories.filter((acc) => acc && acc.context.config.subtype === 'zone-switch');
           const faucetAccessory = accessories.filter((acc) => acc && acc.context.config.subtype === 'zone-faucet');

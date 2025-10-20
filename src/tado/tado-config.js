@@ -519,7 +519,7 @@ export default {
               home.extras && home.extras.childLockSwitches
                 ? home.extras.childLockSwitches.filter((childLockSwitch) => childLockSwitch && childLockSwitch.active)
                 : [],
-            polling: Number.isInteger(home.polling) ? (home.polling < 30 ? 30 : home.polling) : 300,
+            polling: Number.isInteger(home.polling) ? (home.polling < 300 ? 300 : home.polling) : 300,
           };
 
           if (home.zones && home.zones.length) {
