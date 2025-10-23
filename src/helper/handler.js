@@ -821,8 +821,10 @@ export default (api, accessories, config, tado, telegram) => {
         });
       }
 
+      const zoneStates = (await tado.getZoneStates(config.homeId))["zoneStates"];
+
       for (const zone of config.zones) {
-        const zoneState = await tado.getZoneState(config.homeId, zone.id);
+        const zoneState = zoneStates[zone.id];
 
         let currentState, targetState, currentTemp, targetTemp, humidity, active, battery, tempEqual;
 

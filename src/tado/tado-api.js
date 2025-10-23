@@ -308,6 +308,10 @@ export default class Tado {
     return this.apiCall(`/api/v2/homes/${home_id}/zones/${zone_id}/state`);
   }
 
+  async getZoneStates(home_id) {
+    return this.apiCall(`/api/v2/homes/${home_id}/zoneStates`);
+  }
+
   async getZoneCapabilities(home_id, zone_id) {
     return this.apiCall(`/api/v2/homes/${home_id}/zones/${zone_id}/capabilities`);
   }
