@@ -10,6 +10,7 @@ const tado_client_id = "1bb50063-6b0c-4d11-bd99-387f4a91cc46";
 export default class Tado {
   constructor(name, config, storagePath, tadoApiUrl, skipAuth) {
     this.tadoApiUrl = tadoApiUrl || tado_url;
+    this.customTadoApiUrlActive = !!tadoApiUrl;
     this.skipAuth = skipAuth?.toString() === "true";
     this.name = name;
     const usesExternalTokenFile = config.username?.toLowerCase().endsWith(".json");
@@ -547,20 +548,6 @@ export default class Tado {
     return this.apiCall(`/api/v2/homes/${home_id}/airComfort`);
   }
 
-  async getWeatherAirComfort(home_id, longitude, latitude) {
-    let geoLocation = {
-      longitude: longitude,
-      latitude: latitude,
-    };
-
-    if (!geoLocation.longitude || !geoLocation.latitude) {
-      const data = await this.getHome(home_id);
-      geoLocation = data.geolocation;
-    }
-
-    return this.apiCall(`/v1/homes/${home_id}/airComfort`, 'GET', {}, geoLocation, 'https://acme.tado.com');
-  }
-
   async setChildLock(serialNumber, state) {
     if (!serialNumber) {
       throw new Error('Cannot change child lock state. No serialNumber is given.');
@@ -618,6 +605,8 @@ export default class Tado {
   }
 
   async getRunningTime(home_id, time, from, to) {
+    if (this.customTadoApiUrlActive) return;
+
     const period = {
       aggregate: time || 'day',
       summary_only: true,
@@ -627,6 +616,6 @@ export default class Tado {
 
     if (to) period.to = to;
 
-    return this.apiCall(`/v1/homes/${home_id}/runningTimes`, 'GET', {}, period, 'https://minder.tado.com', false);
+    return this.apiCall(`/v1/homes/${home_id}/runningTimes`, 'GET', {}, period, 'https://minder.tado.com');
   }
 }
