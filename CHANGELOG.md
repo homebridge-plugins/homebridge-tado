@@ -1,5 +1,11 @@
 # Changelog
 
+## v8.2.0 - 2025-10-23
+- Query all zone states in a single API request to significantly reduce the number of API calls to tado during polling
+- Update zone state after clearing a zone overlay
+- Skip getRunningTime call when a custom URL is used and remove obsolete getWeatherAirComfort (#176)
+- Add example for tadoApiUrl in config (#176)
+
 ## v8.1.2 - 2025-10-20
 - Fix: Skip auth also for config endpoints if enabled (#176)
 
