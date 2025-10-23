@@ -549,7 +549,7 @@ const schema = {
     'tadoApiUrl': {
       'title': 'Tado API URL',
       'type': 'string',
-      'description': 'Optional: Use a custom tado api url.'
+      'description': 'Optional: Use a custom tado api url (e.g. http://localhost:8080).'
     },
     'skipAuth': {
       'title': 'Skip Authentication',
