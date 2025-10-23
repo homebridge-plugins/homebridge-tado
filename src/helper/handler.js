@@ -110,6 +110,7 @@ export default (api, accessories, config, tado, telegram) => {
                     accessory.context.config.subtype.includes('heatercooler'))
                 ) {
                   await tado.clearZoneOverlay(config.homeId, accessory.context.config.zoneId);
+                  await updateZones(accessory.context.config.zoneId);
                   return;
                 }
 
@@ -170,6 +171,7 @@ export default (api, accessories, config, tado, telegram) => {
                   accessory.context.config.subtype.includes('heatercooler'))
               ) {
                 await tado.clearZoneOverlay(config.homeId, accessory.context.config.zoneId);
+                await updateZones(accessory.context.config.zoneId);
                 return;
               }
 
@@ -770,8 +772,8 @@ export default (api, accessories, config, tado, telegram) => {
     return;
   }
 
-  async function updateZones() {
-    if (!settingState) {
+  async function updateZones(idToUpdate) {
+    if (!settingState || idToUpdate !== undefined) {
       Logger.debug('Polling Zones...', config.homeName);
 
       //CentralSwitch
@@ -821,9 +823,17 @@ export default (api, accessories, config, tado, telegram) => {
         });
       }
 
-      const zoneStates = (await tado.getZoneStates(config.homeId))["zoneStates"];
+      let zoneStates = {};
+      let zonesToUpdate = [];
+      if (idToUpdate !== undefined) {
+        zoneStates[idToUpdate] = await tado.getZoneState(config.homeId, idToUpdate);
+        zonesToUpdate = config.zones.filter(zone => zone.id === idToUpdate);
+      } else {
+        zoneStates = (await tado.getZoneStates(config.homeId))["zoneStates"];
+        zonesToUpdate = config.zones;
+      }
 
-      for (const zone of config.zones) {
+      for (const zone of zonesToUpdate) {
         const zoneState = zoneStates[zone.id];
 
         let currentState, targetState, currentTemp, targetTemp, humidity, active, battery, tempEqual;
