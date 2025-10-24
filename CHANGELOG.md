@@ -1,5 +1,12 @@
 # Changelog
 
+## v8.3.0 - 2025-10-25
+- Add tado API counter
+- Improve task scheduling and interval handling
+- Refresh fakegato history after every polling
+- Add option to disable fakegato history
+- Persist tado zone states to storage directory after every polling
+
 ## v8.2.0 - 2025-10-23
 - Query all zone states in a single API request to significantly reduce the number of API calls to tado during polling
 - Update zone state after clearing a zone overlay
