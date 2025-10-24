@@ -568,7 +568,7 @@ export default (api, accessories, config, tado, telegram) => {
               ? Math.round(targetTemp - currentTemp >= 5 ? 100 : (targetTemp - currentTemp) * 20)
               : 0;
 
-          historyService.addEntry({
+          if (historyService) historyService.addEntry({
             time: moment().unix(),
             currentTemp: currentTemp,
             setTemp: targetTemp,
@@ -596,7 +596,7 @@ export default (api, accessories, config, tado, telegram) => {
               ? Math.round(targetTemp - currentTemp >= 5 ? 100 : (targetTemp - currentTemp) * 20)
               : 0;
 
-          historyService.addEntry({
+          if (historyService) historyService.addEntry({
             time: moment().unix(),
             currentTemp: currentTemp,
             setTemp: targetTemp,
@@ -637,7 +637,7 @@ export default (api, accessories, config, tado, telegram) => {
               .updateValue(openDuration);
           }
 
-          historyService.addEntry({ time: moment().unix(), status: value.newValue ? 1 : 0 });
+          if (historyService) historyService.addEntry({ time: moment().unix(), status: value.newValue ? 1 : 0 });
 
           let dest = value.newValue ? 'opened' : 'closed';
 
@@ -659,7 +659,7 @@ export default (api, accessories, config, tado, telegram) => {
               .getCharacteristic(api.hap.Characteristic.LastActivation)
               .updateValue(lastActivation);
 
-            historyService.addEntry({ time: moment().unix(), status: value.newValue ? 1 : 0 });
+            if (historyService) historyService.addEntry({ time: moment().unix(), status: value.newValue ? 1 : 0 });
           }
 
           let dest;
@@ -680,13 +680,13 @@ export default (api, accessories, config, tado, telegram) => {
 
         case 'zone-temperature':
         case 'weather-temperature': {
-          historyService.addEntry({ time: moment().unix(), temp: value.newValue, humidity: 0, ppm: 0 });
+          if (historyService) historyService.addEntry({ time: moment().unix(), temp: value.newValue, humidity: 0, ppm: 0 });
 
           break;
         }
 
         case 'zone-humidity': {
-          historyService.addEntry({ time: moment().unix(), temp: 0, humidity: value.newValue, ppm: 0 });
+          if (historyService) historyService.addEntry({ time: moment().unix(), temp: 0, humidity: value.newValue, ppm: 0 });
 
           break;
         }

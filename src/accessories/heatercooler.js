@@ -248,11 +248,11 @@ export default class HeaterCoolerAccessory {
     if (service.testCharacteristic(this.api.hap.Characteristic.RotationSpeed))
       service.removeCharacteristic(service.getCharacteristic(this.api.hap.Characteristic.RotationSpeed));
 
-    this.historyService = new this.FakeGatoHistoryService('thermo', this.accessory, {
+    this.historyService = this.FakeGatoHistoryService ? new this.FakeGatoHistoryService('thermo', this.accessory, {
       storage: 'fs',
       path: this.api.user.storagePath(),
       disableTimer: true,
-    });
+    }) : undefined;
 
     await timeout(250); //wait for historyService to load
 
@@ -341,7 +341,7 @@ export default class HeaterCoolerAccessory {
         : 0;
 
     //Thermo
-    this.historyService.addEntry({
+    if (this.historyService) this.historyService.addEntry({
       time: moment().unix(),
       currentTemp: currentTemp,
       setTemp: targetTemp,

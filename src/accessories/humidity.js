@@ -50,11 +50,11 @@ export default class HumidityAccessory {
       }
     }
 
-    this.historyService = new this.FakeGatoHistoryService('room', this.accessory, {
+    this.historyService = this.FakeGatoHistoryService ? new this.FakeGatoHistoryService('room', this.accessory, {
       storage: 'fs',
       path: this.api.user.storagePath(),
       disableTimer: true,
-    });
+    }) : undefined;
 
     await timeout(250); //wait for historyService to load
 
@@ -74,7 +74,7 @@ export default class HumidityAccessory {
   refreshHistory(service) {
     let state = service.getCharacteristic(this.api.hap.Characteristic.CurrentRelativeHumidity).value;
 
-    this.historyService.addEntry({
+    if (this.historyService) this.historyService.addEntry({
       time: moment().unix(),
       temp: 0,
       humidity: state,

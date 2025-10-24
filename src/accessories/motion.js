@@ -41,11 +41,11 @@ export default class MotionAccessory {
     if (!service.testCharacteristic(this.api.hap.Characteristic.LastActivation))
       service.addCharacteristic(this.api.hap.Characteristic.LastActivation);
 
-    this.historyService = new this.FakeGatoHistoryService('motion', this.accessory, {
+    this.historyService = this.FakeGatoHistoryService ? new this.FakeGatoHistoryService('motion', this.accessory, {
       storage: 'fs',
       path: this.api.user.storagePath(),
       disableTimer: true,
-    });
+    }) : undefined;
 
     await timeout(250); //wait for historyService to load
 
@@ -65,7 +65,7 @@ export default class MotionAccessory {
   refreshHistory(service) {
     let state = service.getCharacteristic(this.api.hap.Characteristic.MotionDetected).value;
 
-    this.historyService.addEntry({
+    if (this.historyService) this.historyService.addEntry({
       time: moment().unix(),
       status: state ? 1 : 0,
     });

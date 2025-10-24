@@ -180,11 +180,11 @@ export default class ThermostatAccessory {
     if (!service.testCharacteristic(this.api.hap.Characteristic.ValvePosition))
       service.addCharacteristic(this.api.hap.Characteristic.ValvePosition);
 
-    this.historyService = new this.FakeGatoHistoryService('thermo', this.accessory, {
+    this.historyService = this.FakeGatoHistoryService ? new this.FakeGatoHistoryService('thermo', this.accessory, {
       storage: 'fs',
       path: this.api.user.storagePath(),
       disableTimer: true,
-    });
+    }) : undefined;
 
     await timeout(250); //wait for historyService to load
 
@@ -271,7 +271,7 @@ export default class ThermostatAccessory {
         ? Math.round(targetTemp - currentTemp >= 5 ? 100 : (targetTemp - currentTemp) * 20)
         : 0;
 
-    this.historyService.addEntry({
+    if (this.historyService) this.historyService.addEntry({
       time: moment().unix(),
       currentTemp: currentTemp,
       setTemp: targetTemp,
