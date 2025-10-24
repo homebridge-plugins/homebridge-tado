@@ -1,7 +1,7 @@
 import Logger from '../helper/logger.js';
 import got from 'got';
 import path from 'path';
-import fs from 'fs/promises';
+import fs, { access, readFile } from 'fs/promises';
 
 const tado_url = "https://my.tado.com";
 const tado_auth_url = "https://login.tado.com/oauth2";
@@ -12,6 +12,7 @@ export default class Tado {
     this.tadoApiUrl = tadoApiUrl || tado_url;
     this.customTadoApiUrlActive = !!tadoApiUrl;
     this.skipAuth = skipAuth?.toString() === "true";
+    this.storagePath = storagePath;
     this.name = name;
     const usesExternalTokenFile = config.username?.toLowerCase().endsWith(".json");
     this._tadoExternalTokenFilePath = usesExternalTokenFile ? config.username : undefined;
@@ -24,11 +25,57 @@ export default class Tado {
       return (hash >>> 0).toString(36).padStart(7, '0');
     };
     this.username = usesExternalTokenFile ? undefined : config.username;
-    this._tadoInternalTokenFilePath = usesExternalTokenFile ? undefined : path.join(storagePath, `.tado-token-${fnSimpleHash(config.username)}.json`);
+    this._tadoInternalTokenFilePath = usesExternalTokenFile ? undefined : path.join(this.storagePath, `.tado-token-${fnSimpleHash(config.username)}.json`);
     this._tadoApiClientId = tado_client_id;
     this._tadoTokenPromise = undefined;
     this._tadoAuthenticationCallback = undefined;
+    this._counterInitPromise = this._initCounter();
     Logger.debug("API successfull initialized", this.name);
+  }
+
+  async _initCounter() {
+    let counterData;
+    try {
+      const sFilePath = path.join(this.storagePath, `tado-counter.json`);
+      await access(sFilePath);
+      const sData = (await readFile(sFilePath, "utf-8"));
+      counterData = JSON.parse(sData)?.counterData;
+    } catch (_err) {
+      //no counter data => ignore
+    }
+    this._counter = counterData?.counter ?? 0;
+    this._counterTimestamp = counterData?.counterTimestamp ?? new Date().toISOString();
+    this._checkCounterMidnightReset();
+  }
+
+  _checkCounterMidnightReset() {
+    const timezone = "Europe/Berlin";
+    const now = new Date();
+    const last = new Date(this._counterTimestamp || 0);
+    const formatDate = (date) => date.toLocaleDateString("en-US", { timeZone: timezone });
+    if (formatDate(now) !== formatDate(last)) {
+      this._counter = 0;
+      this._counterTimestamp = new Date().toISOString();
+    }
+  }
+
+  async _increaseCounter() {
+    try {
+      await this._counterInitPromise;
+      this._checkCounterMidnightReset();
+      this._counter++;
+      this._counterTimestamp = new Date().toISOString();
+    } catch (error) {
+      Logger.warn(`Failed to increase tado api counter: ${error.message || error}`);
+    }
+  }
+
+  async getCounterData() {
+    await this._counterInitPromise;
+    return {
+      counter: this._counter,
+      counterTimestamp: this._counterTimestamp
+    };
   }
 
   async getToken() {
@@ -95,6 +142,7 @@ export default class Tado {
         },
         responseType: "json"
       });
+      await this._increaseCounter();
       const { access_token, refresh_token } = response.body;
       if (!access_token || !refresh_token) throw new Error("Empty access/refresh token.");
       await fs.writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
@@ -114,6 +162,7 @@ export default class Tado {
       },
       responseType: "json"
     });
+    await this._increaseCounter();
     const { device_code, verification_uri_complete } = authResponse.body;
     if (!device_code) throw new Error("Failed to retrieve device code.");
     Logger.info(`Open the following URL in your browser, click "submit" and log in to your tado° account "${this.username}": ${verification_uri_complete}`);
@@ -131,6 +180,7 @@ export default class Tado {
           },
           responseType: "json"
         });
+        await this._increaseCounter();
       } catch (_error) {
         //authentication still pending -> response code 400
       }
@@ -211,6 +261,7 @@ export default class Tado {
 
     try {
       const response = await got(tadoLink + path, config);
+      await this._increaseCounter();
       return response.body;
     } catch (error) {
       Logger.error(`API Request [${method} ${path}] - FAILED: ${error.message}`, this.name);

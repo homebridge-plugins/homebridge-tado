@@ -705,8 +705,15 @@ export default (api, accessories, config, tado, telegram) => {
   async function refreshHistory(homeId, zoneStates) {
     try {
       const data = {};
+      data.counterData = await tado.getCounterData();
+      await writeFile(join(storagePath, "tado-counter.json"), JSON.stringify(data, null, 2), "utf-8");
+    } catch (error) {
+      Logger.error(`Error while updating tado counter file: ${error.message || error}`);
+    }
+    try {
+      const data = {};
       data.zoneStates = zoneStates ?? {};
-      await writeFile(join(storagePath, `tado_states_${homeId}.json`), JSON.stringify(data, null, 2), "utf-8");
+      await writeFile(join(storagePath, `tado-states-${homeId}.json`), JSON.stringify(data, null, 2), "utf-8");
     } catch (error) {
       Logger.error(`Error while updating tado states file for home id ${homeId}: ${error.message || error}`);
     }
@@ -753,6 +760,18 @@ export default (api, accessories, config, tado, telegram) => {
         getStates();
       }, Math.max(config.polling, 300) * 1000);
     }
+
+    //log tado api counter every hour
+    async function logCounter() {
+      try {
+        const iCounter = (await tado.getCounterData()).counter;
+        Logger.info(`Tado API counter: ${iCounter.toLocaleString('en-US')}`);
+      } catch (error) {
+        Logger.warn(`Failed to get Tado API counter: ${error.message || error}`);
+      }
+    }
+    void logCounter();
+    setInterval(logCounter, 60 * 60 * 1000);
   }
 
   async function updateMe() {
