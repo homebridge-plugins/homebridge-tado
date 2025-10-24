@@ -5,6 +5,7 @@ var settingState = false;
 var delayTimer = {};
 
 const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
+const aRefreshHistoryHandlers = [];
 
 export default (api, accessories, config, tado, telegram) => {
   async function setStates(accessory, accs, target, value) {
@@ -725,6 +726,11 @@ export default (api, accessories, config, tado, telegram) => {
     } catch (err) {
       errorHandler(err);
     } finally {
+      try {
+        aRefreshHistoryHandlers.forEach(fnRefreshHistory => fnRefreshHistory());
+      } catch (error) {
+        Logger.error(`Error while refreshing history: ${error.message || error}`);
+      }
       setTimeout(() => {
         getStates();
       }, Math.max(config.polling, 300) * 1000);
@@ -1513,5 +1519,6 @@ export default (api, accessories, config, tado, telegram) => {
     getStates: getStates,
     setStates: setStates,
     changedStates: changedStates,
+    refreshHistoryHandlers: aRefreshHistoryHandlers
   };
 };

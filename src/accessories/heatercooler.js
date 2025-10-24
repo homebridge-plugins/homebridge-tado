@@ -324,7 +324,10 @@ export default class HeaterCoolerAccessory {
         this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
       );
 
-    this.refreshHistory(service);
+    if (!this.refreshHistoryHandlerRegistered) {
+      this.deviceHandler.refreshHistoryHandlers.push(() => this.refreshHistory(service));
+      this.refreshHistoryHandlerRegistered = true;
+    }
   }
 
   refreshHistory(service) {
@@ -344,9 +347,5 @@ export default class HeaterCoolerAccessory {
       setTemp: targetTemp,
       valvePosition: valvePos,
     });
-
-    setTimeout(() => {
-      this.refreshHistory(service);
-    }, 10 * 60 * 1000);
   }
 }

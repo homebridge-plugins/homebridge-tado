@@ -254,7 +254,10 @@ export default class ThermostatAccessory {
         this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
       );
 
-    this.refreshHistory(service);
+    if (!this.refreshHistoryHandlerRegistered) {
+      this.deviceHandler.refreshHistoryHandlers.push(() => this.refreshHistory(service));
+      this.refreshHistoryHandlerRegistered = true;
+    }
   }
 
   refreshHistory(service) {
@@ -274,10 +277,6 @@ export default class ThermostatAccessory {
       setTemp: targetTemp,
       valvePosition: valvePos,
     });
-
-    setTimeout(() => {
-      this.refreshHistory(service);
-    }, 10 * 60 * 1000);
   }
 
   async changeUnit(service, value) {

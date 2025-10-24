@@ -101,7 +101,10 @@ export default class ContactAccessory {
         this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
       );
 
-    this.refreshHistory(service);
+    if (!this.refreshHistoryHandlerRegistered) {
+      this.deviceHandler.refreshHistoryHandlers.push(() => this.refreshHistory(service));
+      this.refreshHistoryHandlerRegistered = true;
+    }
   }
 
   refreshHistory(service) {
@@ -111,9 +114,5 @@ export default class ContactAccessory {
       time: moment().unix(),
       status: state ? 1 : 0,
     });
-
-    setTimeout(() => {
-      this.refreshHistory(service);
-    }, 10 * 60 * 1000);
   }
 }

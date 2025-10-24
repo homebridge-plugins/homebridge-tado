@@ -56,19 +56,18 @@ export default class MotionAccessory {
         this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
       );
 
-    this.refreshHistory(service);
+    if (!this.refreshHistoryHandlerRegistered) {
+      this.deviceHandler.refreshHistoryHandlers.push(() => this.refreshHistory(service));
+      this.refreshHistoryHandlerRegistered = true;
+    }
   }
 
-  async refreshHistory(service) {
+  refreshHistory(service) {
     let state = service.getCharacteristic(this.api.hap.Characteristic.MotionDetected).value;
 
     this.historyService.addEntry({
       time: moment().unix(),
       status: state ? 1 : 0,
     });
-
-    setTimeout(() => {
-      this.refreshHistory(service);
-    }, 10 * 60 * 1000);
   }
 }
