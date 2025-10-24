@@ -5,16 +5,13 @@ import { join } from "path";
 
 var settingState = false;
 var delayTimer = {};
-
-let statesInterval;
-let counterInterval;
+let tasksInitialized = false;
 
 const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
 const aRefreshHistoryHandlers = [];
 
 export default (api, accessories, config, tado, telegram) => {
   const storagePath = api.user.storagePath();
-  initTasks();
 
   async function setStates(accessory, accs, target, value) {
     accessories = accs.filter((acc) => acc && acc.context.config.homeName === config.homeName);
@@ -706,14 +703,7 @@ export default (api, accessories, config, tado, telegram) => {
     }
   }
 
-  async function refreshHistory(homeId, zoneStates) {
-    try {
-      const data = {};
-      data.counterData = await tado.getCounterData();
-      await writeFile(join(storagePath, "tado-counter.json"), JSON.stringify(data, null, 2), "utf-8");
-    } catch (error) {
-      Logger.error(`Error while updating tado counter file: ${error.message || error}`);
-    }
+  async function persistStates(homeId, zoneStates) {
     try {
       const data = {};
       data.zoneStates = zoneStates ?? {};
@@ -722,6 +712,15 @@ export default (api, accessories, config, tado, telegram) => {
       Logger.error(`Error while updating tado states file for home id ${homeId}: ${error.message || error}`);
     }
     try {
+      const data = {};
+      data.counterData = await tado.getCounterData();
+      await writeFile(join(storagePath, "tado-counter.json"), JSON.stringify(data, null, 2), "utf-8");
+    } catch (error) {
+      Logger.error(`Error while updating tado counter file: ${error.message || error}`);
+    }
+    try {
+      //wait for fakegato services to be loaded
+      await new Promise(r => setTimeout(r, 4000));
       for (const fnRefreshHistory of aRefreshHistoryHandlers) {
         fnRefreshHistory();
       }
@@ -740,16 +739,18 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   function initTasks() {
-    if (statesInterval) clearInterval(statesInterval);
-    void getStates();
-    statesInterval = setInterval(() => getStates(), Math.max(config.polling, 300) * 1000);
+    if (tasksInitialized) return;
+    tasksInitialized = true;
 
-    if (counterInterval) clearInterval(counterInterval);
+    void getStates();
+    setInterval(() => getStates(), Math.max(config.polling, 300) * 1000);
+
     void logCounter();
-    counterInterval = setInterval(() => logCounter(), 60 * 60 * 1000);
+    setInterval(() => logCounter(), 60 * 60 * 1000);
   }
 
   async function getStates() {
+    let zoneStates = {};
     try {
       //ME
       if (!config.homeId) await updateMe();
@@ -758,12 +759,7 @@ export default (api, accessories, config, tado, telegram) => {
       if (!config.temperatureUnit) await updateHome();
 
       //Zones
-      let zoneStates = {};
-      try {
-        if (config.zones.length) zoneStates = await updateZones();
-      } finally {
-        void refreshHistory(config.homeId, zoneStates);
-      }
+      if (config.zones.length) zoneStates = await updateZones();
 
       //MobileDevices
       if (config.presence.length) await updateMobileDevices();
@@ -781,6 +777,8 @@ export default (api, accessories, config, tado, telegram) => {
       if (config.childLock.length) await updateDevices();
     } catch (err) {
       errorHandler(err);
+    } finally {
+      void persistStates(config.homeId, zoneStates);
     }
   }
 
@@ -1564,6 +1562,7 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   return {
+    initTasks: initTasks,
     getStates: getStates,
     setStates: setStates,
     changedStates: changedStates,
