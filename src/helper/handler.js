@@ -1,5 +1,7 @@
 import Logger from '../helper/logger.js';
 import moment from 'moment';
+import { writeFile } from 'fs/promises';
+import { join } from "path";
 
 var settingState = false;
 var delayTimer = {};
@@ -8,6 +10,8 @@ const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
 const aRefreshHistoryHandlers = [];
 
 export default (api, accessories, config, tado, telegram) => {
+  const storagePath = api.user.storagePath();
+
   async function setStates(accessory, accs, target, value) {
     accessories = accs.filter((acc) => acc && acc.context.config.homeName === config.homeName);
 
@@ -698,7 +702,25 @@ export default (api, accessories, config, tado, telegram) => {
     }
   }
 
+  async function refreshHistory(homeId, zoneStates) {
+    try {
+      const data = {};
+      data.zoneStates = zoneStates ?? {};
+      await writeFile(join(storagePath, `tado_states_${homeId}.json`), JSON.stringify(data, null, 2), "utf-8");
+    } catch (error) {
+      Logger.error(`Error while updating tado states file for home id ${homeId}: ${error.message || error}`);
+    }
+    try {
+      for (const fnRefreshHistory of aRefreshHistoryHandlers) {
+        fnRefreshHistory();
+      }
+    } catch (error) {
+      Logger.error(`Error while refreshing history: ${error.message || error}`);
+    }
+  }
+
   async function getStates() {
+    let zoneStates = {};
     try {
       //ME
       if (!config.homeId) await updateMe();
@@ -707,7 +729,7 @@ export default (api, accessories, config, tado, telegram) => {
       if (!config.temperatureUnit) await updateHome();
 
       //Zones
-      if (config.zones.length) await updateZones();
+      if (config.zones.length) zoneStates = await updateZones();
 
       //MobileDevices
       if (config.presence.length) await updateMobileDevices();
@@ -726,11 +748,7 @@ export default (api, accessories, config, tado, telegram) => {
     } catch (err) {
       errorHandler(err);
     } finally {
-      try {
-        aRefreshHistoryHandlers.forEach(fnRefreshHistory => fnRefreshHistory());
-      } catch (error) {
-        Logger.error(`Error while refreshing history: ${error.message || error}`);
-      }
+      refreshHistory(config.homeId, zoneStates);
       setTimeout(() => {
         getStates();
       }, Math.max(config.polling, 300) * 1000);
@@ -779,6 +797,7 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   async function updateZones(idToUpdate) {
+    let zoneStates = {};
     if (!settingState || idToUpdate !== undefined) {
       Logger.debug('Polling Zones...', config.homeName);
 
@@ -829,7 +848,6 @@ export default (api, accessories, config, tado, telegram) => {
         });
       }
 
-      let zoneStates = {};
       let zonesToUpdate = [];
       if (idToUpdate !== undefined) {
         zoneStates[idToUpdate] = await tado.getZoneState(config.homeId, idToUpdate);
@@ -1239,6 +1257,7 @@ export default (api, accessories, config, tado, telegram) => {
         });
       }
     }
+    return zoneStates = {};
   }
 
   async function updateMobileDevices() {
