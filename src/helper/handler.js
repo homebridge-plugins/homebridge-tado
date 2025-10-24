@@ -6,11 +6,15 @@ import { join } from "path";
 var settingState = false;
 var delayTimer = {};
 
+let statesInterval;
+let counterInterval;
+
 const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
 const aRefreshHistoryHandlers = [];
 
 export default (api, accessories, config, tado, telegram) => {
   const storagePath = api.user.storagePath();
+  initTasks();
 
   async function setStates(accessory, accs, target, value) {
     accessories = accs.filter((acc) => acc && acc.context.config.homeName === config.homeName);
@@ -726,8 +730,26 @@ export default (api, accessories, config, tado, telegram) => {
     }
   }
 
+  async function logCounter() {
+    try {
+      const iCounter = (await tado.getCounterData()).counter;
+      Logger.info(`Tado API counter: ${iCounter.toLocaleString('en-US')}`);
+    } catch (error) {
+      Logger.warn(`Failed to get Tado API counter: ${error.message || error}`);
+    }
+  }
+
+  function initTasks() {
+    if (statesInterval) clearInterval(statesInterval);
+    void getStates();
+    statesInterval = setInterval(() => getStates(), Math.max(config.polling, 300) * 1000);
+
+    if (counterInterval) clearInterval(counterInterval);
+    void logCounter();
+    counterInterval = setInterval(() => logCounter(), 60 * 60 * 1000);
+  }
+
   async function getStates() {
-    let zoneStates = {};
     try {
       //ME
       if (!config.homeId) await updateMe();
@@ -736,7 +758,12 @@ export default (api, accessories, config, tado, telegram) => {
       if (!config.temperatureUnit) await updateHome();
 
       //Zones
-      if (config.zones.length) zoneStates = await updateZones();
+      let zoneStates = {};
+      try {
+        if (config.zones.length) zoneStates = await updateZones();
+      } finally {
+        void refreshHistory(config.homeId, zoneStates);
+      }
 
       //MobileDevices
       if (config.presence.length) await updateMobileDevices();
@@ -754,24 +781,7 @@ export default (api, accessories, config, tado, telegram) => {
       if (config.childLock.length) await updateDevices();
     } catch (err) {
       errorHandler(err);
-    } finally {
-      refreshHistory(config.homeId, zoneStates);
-      setTimeout(() => {
-        getStates();
-      }, Math.max(config.polling, 300) * 1000);
     }
-
-    //log tado api counter every hour
-    async function logCounter() {
-      try {
-        const iCounter = (await tado.getCounterData()).counter;
-        Logger.info(`Tado API counter: ${iCounter.toLocaleString('en-US')}`);
-      } catch (error) {
-        Logger.warn(`Failed to get Tado API counter: ${error.message || error}`);
-      }
-    }
-    void logCounter();
-    setInterval(logCounter, 60 * 60 * 1000);
   }
 
   async function updateMe() {
@@ -1276,7 +1286,7 @@ export default (api, accessories, config, tado, telegram) => {
         });
       }
     }
-    return zoneStates = {};
+    return zoneStates;
   }
 
   async function updateMobileDevices() {

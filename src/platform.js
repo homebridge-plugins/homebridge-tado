@@ -192,8 +192,7 @@ class TadoPlatform {
 
       let accessories = this.accessories.filter((acc) => acc && acc.context.config.homeName === name);
 
-      const deviceHandler = DeviceHandler(this.api, accessories, config, tado, this.telegram);
-      deviceHandler.getStates();
+      DeviceHandler(this.api, accessories, config, tado, this.telegram);
     }
   }
 
