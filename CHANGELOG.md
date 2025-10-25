@@ -3,8 +3,8 @@
 ## v8.3.0 - 2025-10-25
 - Add tado API counter
 - Improve task scheduling and interval handling
-- Refresh fakegato history after every polling
-- Add option to disable fakegato history
+- Refresh history service directly after polling
+- Add option to disable the history service
 - Persist tado zone states to storage directory after every polling
 
 ## v8.2.0 - 2025-10-23

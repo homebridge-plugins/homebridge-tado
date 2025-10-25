@@ -556,10 +556,10 @@ const schema = {
       'type': 'boolean',
       'description': 'Optional: Skip authentication for tado api.'
     },
-    'disableFakeGatoHistory': {
-      'title': 'Disable FakeGato History Service',
+    'disableHistoryService': {
+      'title': 'Disable History Service',
       'type': 'boolean',
-      'description': 'Optional: Skip creation of FakeGato history service.'
+      'description': 'Optional: Skip creation of history service.'
     }
   },
   'layout': [
@@ -567,7 +567,7 @@ const schema = {
     'debug',
     'tadoApiUrl',
     'skipAuth',
-    'disableFakeGatoHistory',
+    'disableHistoryService',
     'homes.name',
     'homes.polling',
     'homes.temperatureUnit',

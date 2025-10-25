@@ -134,7 +134,7 @@ async function createCustomSchema(home) {
     debug: pluginConfig[0].debug,
     tadoApiUrl: pluginConfig[0].tadoApiUrl,
     skipAuth: pluginConfig[0].skipAuth,
-    disableFakeGatoHistory: pluginConfig[0].disableFakeGatoHistory,
+    disableHistoryService: pluginConfig[0].disableHistoryService,
     homes: home
   });
 
@@ -144,7 +144,7 @@ async function createCustomSchema(home) {
     pluginConfig[0].debug = config.debug;
     pluginConfig[0].tadoApiUrl = config.tadoApiUrl;
     pluginConfig[0].skipAuth = config.skipAuth;
-    pluginConfig[0].disableFakeGatoHistory = config.disableFakeGatoHistory;
+    pluginConfig[0].disableHistoryService = config.disableHistoryService;
     pluginConfig[0].homes = pluginConfig[0].homes.map(myHome => {
       if (myHome.name === config.homes.name) {
         myHome = config.homes;
@@ -287,7 +287,7 @@ async function removeDeviceFromConfig(name) {
         delete pluginConfig[0].debug;
         delete pluginConfig[0].tadoApiUrl;
         delete pluginConfig[0].skipAuth;
-        delete pluginConfig[0].disableFakeGatoHistory;
+        delete pluginConfig[0].disableHistoryService;
       }
 
       await homebridge.updatePluginConfig(pluginConfig);

@@ -41,7 +41,7 @@ class TadoPlatform {
     Logger.init(log, config.debug);
     CustomTypes.registerWith(api.hap);
     EveTypes.registerWith(api.hap);
-    FakeGatoHistoryService = config.disableFakeGatoHistory ? undefined : fakeGatoHistory(api);
+    FakeGatoHistoryService = config.disableHistoryService ? undefined : fakeGatoHistory(api);
 
     this.api = api;
     this.accessories = [];
