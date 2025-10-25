@@ -70,7 +70,7 @@ export default class TemperatureAccessory {
         this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
       );
 
-    if (!this.refreshHistoryHandlerRegistered) {
+    if (this.FakeGatoHistoryService && !this.refreshHistoryHandlerRegistered) {
       this.deviceHandler.refreshHistoryHandlers.push(() => this.refreshHistory(service));
       this.refreshHistoryHandlerRegistered = true;
     }

@@ -719,10 +719,12 @@ export default (api, accessories, config, tado, telegram) => {
       Logger.error(`Error while updating tado counter file: ${error.message || error}`);
     }
     try {
-      //wait for fakegato services to be loaded
-      await new Promise(r => setTimeout(r, 4000));
-      for (const fnRefreshHistory of aRefreshHistoryHandlers) {
-        fnRefreshHistory();
+      if (aRefreshHistoryHandlers.length) {
+        //wait for fakegato services to be loaded
+        await new Promise(r => setTimeout(r, 4000));
+        for (const fnRefreshHistory of aRefreshHistoryHandlers) {
+          fnRefreshHistory();
+        }
       }
     } catch (error) {
       Logger.error(`Error while refreshing history: ${error.message || error}`);
