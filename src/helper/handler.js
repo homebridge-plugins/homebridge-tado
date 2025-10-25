@@ -1,6 +1,6 @@
 import Logger from '../helper/logger.js';
 import moment from 'moment';
-import { writeFile } from 'fs/promises';
+import { writeFile, access, readFile } from 'fs/promises';
 import { join } from "path";
 
 var settingState = false;
@@ -9,6 +9,18 @@ let tasksInitialized = false;
 
 const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
 const aRefreshHistoryHandlers = [];
+
+export async function getPersistedStates(storagePath) {
+  try {
+    const sFilePath = join(storagePath, "tado-states.json");
+    await access(sFilePath);
+    const sData = (await readFile(sFilePath, "utf-8"));
+    if (sData) return JSON.parse(sData);
+  } catch (error) {
+    //no states data => ignore
+    Logger.debug(`Failed to read tado states file: ${error.message || error}`);
+  }
+}
 
 export default (api, accessories, config, tado, telegram) => {
   const storagePath = api.user.storagePath();
@@ -705,18 +717,18 @@ export default (api, accessories, config, tado, telegram) => {
 
   async function persistStates(homeId, zoneStates) {
     try {
-      const data = {};
-      data.zoneStates = zoneStates ?? {};
-      await writeFile(join(storagePath, `tado-states-${homeId}.json`), JSON.stringify(data, null, 2), "utf-8");
+      const homeData = {};
+      homeData.zoneStates = zoneStates ?? {};
+      await writeFile(join(storagePath, `tado-states-${homeId}.json`), JSON.stringify(homeData, null, 2), "utf-8");
     } catch (error) {
-      Logger.error(`Error while updating tado states file for home id ${homeId}: ${error.message || error}`);
+      Logger.error(`Error while updating the tado states file for home id ${homeId}: ${error.message || error}`);
     }
     try {
       const data = {};
       data.counterData = await tado.getCounterData();
-      await writeFile(join(storagePath, "tado-counter.json"), JSON.stringify(data, null, 2), "utf-8");
+      await writeFile(join(storagePath, "tado-states.json"), JSON.stringify(data, null, 2), "utf-8");
     } catch (error) {
-      Logger.error(`Error while updating tado counter file: ${error.message || error}`);
+      Logger.error(`Error while updating the tado states file: ${error.message || error}`);
     }
     try {
       //wait for fakegato services to be loaded

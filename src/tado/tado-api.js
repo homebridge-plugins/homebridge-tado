@@ -1,7 +1,8 @@
 import Logger from '../helper/logger.js';
+import { getPersistedStates } from '../helper/handler.js';
 import got from 'got';
-import path from 'path';
-import fs, { access, readFile } from 'fs/promises';
+import { join } from 'path';
+import { access, readFile, writeFile } from 'fs/promises';
 
 const tado_url = "https://my.tado.com";
 const tado_auth_url = "https://login.tado.com/oauth2";
@@ -25,7 +26,7 @@ export default class Tado {
       return (hash >>> 0).toString(36).padStart(7, '0');
     };
     this.username = usesExternalTokenFile ? undefined : config.username;
-    this._tadoInternalTokenFilePath = usesExternalTokenFile ? undefined : path.join(this.storagePath, `.tado-token-${fnSimpleHash(config.username)}.json`);
+    this._tadoInternalTokenFilePath = usesExternalTokenFile ? undefined : join(this.storagePath, `.tado-token-${fnSimpleHash(config.username)}.json`);
     this._tadoApiClientId = tado_client_id;
     this._tadoTokenPromise = undefined;
     this._tadoAuthenticationCallback = undefined;
@@ -34,17 +35,9 @@ export default class Tado {
   }
 
   async _initCounter() {
-    let counterData;
-    try {
-      const sFilePath = path.join(this.storagePath, `tado-counter.json`);
-      await access(sFilePath);
-      const sData = (await readFile(sFilePath, "utf-8"));
-      counterData = JSON.parse(sData)?.counterData;
-    } catch (_err) {
-      //no counter data => ignore
-    }
-    this._counter = counterData?.counter ?? 0;
-    this._counterTimestamp = counterData?.counterTimestamp ?? new Date().toISOString();
+    const persistedCounterData = (await getPersistedStates(this.storagePath))?.counterData;
+    this._counter = persistedCounterData?.counter ?? 0;
+    this._counterTimestamp = persistedCounterData?.counterTimestamp ?? new Date().toISOString();
     this._checkCounterMidnightReset();
   }
 
@@ -106,7 +99,7 @@ export default class Tado {
   async _retrieveToken() {
     try {
       if (this._tadoBearerToken.refresh_token) return this._refreshToken(this._tadoBearerToken.refresh_token);
-      await fs.access(this._tadoInternalTokenFilePath);
+      await access(this._tadoInternalTokenFilePath);
       const refresh_token = await this._retrieveRefreshTokenFromInternalFile();
       return this._refreshToken(refresh_token);
 
@@ -119,7 +112,7 @@ export default class Tado {
     const maxRetries = 3;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const data = await fs.readFile(this._tadoInternalTokenFilePath, "utf8");
+        const data = await readFile(this._tadoInternalTokenFilePath, "utf8");
         const json = JSON.parse(data);
         if (json.refresh_token) return json.refresh_token;
       } catch (error) {
@@ -145,7 +138,7 @@ export default class Tado {
       await this._increaseCounter();
       const { access_token, refresh_token } = response.body;
       if (!access_token || !refresh_token) throw new Error("Empty access/refresh token.");
-      await fs.writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
+      await writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
       this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
     } catch (error) {
       Logger.warn(`Error while refreshing token: ${error.message || error}`);
@@ -187,7 +180,7 @@ export default class Tado {
       if (tokenResponse?.body) {
         const { access_token, refresh_token } = tokenResponse.body;
         if (access_token && refresh_token) {
-          await fs.writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
+          await writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
           this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
           Logger.info("Authentication successful!");
           return;
@@ -202,7 +195,7 @@ export default class Tado {
     const maxRetries = 3;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const data = await fs.readFile(this._tadoExternalTokenFilePath, 'utf8');
+        const data = await readFile(this._tadoExternalTokenFilePath, 'utf8');
         const json = JSON.parse(data);
         if (json.access_token) {
           this._tadoBearerToken = { access_token: json.access_token, refresh_token: undefined, timestamp: Date.now() };
