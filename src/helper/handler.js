@@ -717,11 +717,15 @@ export default (api, accessories, config, tado, telegram) => {
 
   async function persistStates(homeId, zoneStates) {
     try {
-      const homeData = {};
-      homeData.zoneStates = zoneStates ?? {};
-      await writeFile(join(storagePath, `tado-states-${homeId}.json`), JSON.stringify(homeData, null, 2), "utf-8");
+      if (zoneStates && Object.keys(zoneStates).length) {
+        const homeData = {};
+        homeData.zoneStates = zoneStates;
+        await writeFile(join(storagePath, `tado-states-${homeId}.json`), JSON.stringify(homeData, null, 2), "utf-8");
+      } else {
+        Logger.info(`Skipping persistence of tado states for home ${homeId}: zone states are empty.`);
+      }
     } catch (error) {
-      Logger.error(`Error while updating the tado states file for home id ${homeId}: ${error.message || error}`);
+      Logger.error(`Error while updating the tado states file for home ${homeId}: ${error.message || error}`);
     }
     try {
       const data = {};
@@ -731,10 +735,10 @@ export default (api, accessories, config, tado, telegram) => {
       Logger.error(`Error while updating the tado states file: ${error.message || error}`);
     }
     try {
-      //wait for fakegato services to be loaded
+      //wait for fakegato history services to be loaded
       await new Promise(r => setTimeout(r, 4000));
-      for (const fnRefreshHistory of aRefreshHistoryHandlers) {
-        fnRefreshHistory();
+      for (const refreshHistory of aRefreshHistoryHandlers) {
+        refreshHistory();
       }
     } catch (error) {
       Logger.error(`Error while refreshing history: ${error.message || error}`);
@@ -1568,7 +1572,7 @@ export default (api, accessories, config, tado, telegram) => {
       error = err;
     }
 
-    Logger.error(error, config.homeName);
+    Logger.error("Error:", error, config.homeName);
 
     return;
   }

@@ -1,5 +1,8 @@
 # Changelog
 
+## v8.3.1 - 2025-10-25
+- Fix: Persist zone states only if not empty
+
 ## v8.3.0 - 2025-10-25
 - Add tado API counter
 - Improve task scheduling and interval handling
