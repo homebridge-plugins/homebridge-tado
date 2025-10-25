@@ -4,7 +4,7 @@
 - Add tado API counter
 - Improve task scheduling and interval handling
 - Refresh history service directly after polling
-- Add option to disable the history service
+- Add option to disable the history service completely
 - Persist tado zone states to storage directory after every polling
 
 ## v8.2.0 - 2025-10-23
