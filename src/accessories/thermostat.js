@@ -199,17 +199,11 @@ export default class ThermostatAccessory {
       }
 
       this.waitForEndValue = setTimeout(() => {
-        if (value === 3) {
-          if (this.timeoutAuto) {
-            this.deviceHandler.setStates(this.accessory, this.accessories, 'State', value);
-            clearTimeout(this.timeoutAuto);
-            this.timeoutAuto = null;
-          } else {
-            this.deviceHandler.setStates(this.accessory, this.accessories, 'State', value);
-          }
-        } else {
-          this.deviceHandler.setStates(this.accessory, this.accessories, 'State', value);
+        if (this.settingTemperature) {
+          this.settingTemperature = false;
+          return;
         }
+        this.deviceHandler.setStates(this.accessory, this.accessories, 'State', value);
       }, 500);
     });
 
@@ -223,24 +217,10 @@ export default class ThermostatAccessory {
     service
       .getCharacteristic(this.api.hap.Characteristic.TargetTemperature)
       .onSet((value) => {
-        /*
-         *let tempUnit = service.getCharacteristic(this.api.hap.Characteristic.TemperatureDisplayUnits).value;
-         *
-         *let cToF = (c) => Math.round((c * 9) / 5 + 32);
-         *let fToC = (f) => Math.round(((f - 32) * 5) / 9);
-         *
-         *let newValue = tempUnit ? (value <= 25 ? cToF(value) : value) : value > 25 ? fToC(value) : value;
-         *
-         *service.getCharacteristic(this.api.hap.Characteristic.CurrentTemperature).updateValue(newValue);
-        */
-
-        this.timeoutAuto = setTimeout(() => {
-          let targetState = service.getCharacteristic(this.api.hap.Characteristic.TargetHeatingCoolingState).value;
-
-          if (targetState) this.deviceHandler.setStates(this.accessory, this.accessories, 'Temperature', value);
-
-          this.timeoutAuto = null;
-        }, 600);
+        this.settingTemperature = true;
+        const targetState = service.getCharacteristic(this.api.hap.Characteristic.TargetHeatingCoolingState).value;
+        if (targetState) this.deviceHandler.setStates(this.accessory, this.accessories, 'Temperature', value);
+        setTimeout(() => this.settingTemperature = false, 1000);
       })
       .on(
         'change',

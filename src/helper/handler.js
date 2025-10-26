@@ -128,7 +128,6 @@ export default (api, accessories, config, tado, telegram) => {
                     accessory.context.config.subtype.includes('heatercooler'))
                 ) {
                   await tado.clearZoneOverlay(config.homeId, accessory.context.config.zoneId);
-                  await updateZones(accessory.context.config.zoneId);
                   return;
                 }
 
@@ -189,7 +188,6 @@ export default (api, accessories, config, tado, telegram) => {
                   accessory.context.config.subtype.includes('heatercooler'))
               ) {
                 await tado.clearZoneOverlay(config.homeId, accessory.context.config.zoneId);
-                await updateZones(accessory.context.config.zoneId);
                 return;
               }
 
@@ -557,6 +555,8 @@ export default (api, accessories, config, tado, telegram) => {
     } catch (err) {
       errorHandler(err);
     } finally {
+      //always update zone to set correct state in Apple Home
+      await updateZones(accessory.context.config.zoneId);
       settingState = false;
     }
   }
@@ -861,34 +861,36 @@ export default (api, accessories, config, tado, telegram) => {
         }
       }
 
-      const allZones = (await tado.getZones(config.homeId)) || [];
+      if (idToUpdate === undefined) {
+        const allZones = (await tado.getZones(config.homeId)) || [];
 
-      for (const [index, zone] of config.zones.entries()) {
-        allZones.forEach((zoneWithID) => {
-          if (zoneWithID.name === zone.name) {
-            const heatAccessory = accessories.filter(
-              (acc) => acc && acc.displayName === config.homeName + ' ' + zone.name + ' Heater'
-            );
+        for (const [index, zone] of config.zones.entries()) {
+          allZones.forEach((zoneWithID) => {
+            if (zoneWithID.name === zone.name) {
+              const heatAccessory = accessories.filter(
+                (acc) => acc && acc.displayName === config.homeName + ' ' + zone.name + ' Heater'
+              );
 
-            if (heatAccessory.length) heatAccessory[0].context.config.zoneId = zoneWithID.id;
+              if (heatAccessory.length) heatAccessory[0].context.config.zoneId = zoneWithID.id;
 
-            config.zones[index].id = zoneWithID.id;
-            config.zones[index].battery = !config.zones[index].noBattery
-              ? zoneWithID.devices.filter(
-                (device) =>
-                  device &&
-                  (zone.type === 'HEATING' || zone.type === 'AIR_CONDITIONING') &&
-                  typeof device.batteryState === 'string' &&
-                  !device.batteryState.includes('NORMAL')
-              ).length
-                ? zoneWithID.devices.filter((device) => device && !device.batteryState.includes('NORMAL'))[0]
-                  .batteryState
-                : zoneWithID.devices.filter((device) => device && device.duties.includes('ZONE_LEADER'))[0].batteryState
-              : false;
-            config.zones[index].openWindowEnabled =
-              zoneWithID.openWindowDetection && zoneWithID.openWindowDetection.enabled ? true : false;
-          }
-        });
+              config.zones[index].id = zoneWithID.id;
+              config.zones[index].battery = !config.zones[index].noBattery
+                ? zoneWithID.devices.filter(
+                  (device) =>
+                    device &&
+                    (zone.type === 'HEATING' || zone.type === 'AIR_CONDITIONING') &&
+                    typeof device.batteryState === 'string' &&
+                    !device.batteryState.includes('NORMAL')
+                ).length
+                  ? zoneWithID.devices.filter((device) => device && !device.batteryState.includes('NORMAL'))[0]
+                    .batteryState
+                  : zoneWithID.devices.filter((device) => device && device.duties.includes('ZONE_LEADER'))[0].batteryState
+                : false;
+              config.zones[index].openWindowEnabled =
+                zoneWithID.openWindowDetection && zoneWithID.openWindowDetection.enabled ? true : false;
+            }
+          });
+        }
       }
 
       let zonesToUpdate = [];
@@ -925,20 +927,21 @@ export default (api, accessories, config, tado, telegram) => {
 
               tempEqual = Math.round(currentTemp) === Math.round(targetTemp);
 
-              currentState = currentTemp <= targetTemp ? 1 : 2;
+              //show as currently heating if current temp is lower than target temp, otherwise show as temp set
+              currentState = currentTemp < targetTemp ? 1 : 0;
 
-              targetState = 1;
+              //check if auto mode is enabled
+              targetState = zoneState.overlayType === null ? 3 : 1;
 
               active = 1;
             } else {
+              //heating is switched off
               currentState = 0;
               targetState = 0;
-              targetTemp = 5;
               active = 0;
             }
 
-            if (zoneState.overlayType === null && targetState !== 0) {
-              currentState = 0;
+            if (targetState === undefined && zoneState.overlayType === null) {
               targetState = 3;
             }
           }

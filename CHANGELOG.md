@@ -1,7 +1,7 @@
 # Changelog
 
-## v8.3.2 - 2025-10-26
-- Fix: Correctly display the heater as off in Apple Home when heating is disabled in Auto mode
+## v8.4.0 - 2025-10-26
+- Improve state handling to ensure Apple Home states always reflect current tado states
 
 ## v8.3.1 - 2025-10-25
 - Fix: Persist zone states only if not empty

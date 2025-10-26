@@ -72,6 +72,7 @@ export default class Tado {
   }
 
   async getToken() {
+    Logger.debug('Get access token...', this.name);
     if (!this._tadoTokenPromise) {
       this._tadoTokenPromise = this._getToken().finally(() => {
         this._tadoTokenPromise = undefined;
@@ -212,7 +213,6 @@ export default class Tado {
   }
 
   async apiCall(path, method = 'GET', data = {}, params = {}, tado_url_dif) {
-    Logger.debug('Get access token...', this.name);
     const access_token = this.skipAuth ? undefined : await this.getToken();
 
     let tadoLink = tado_url_dif || this.tadoApiUrl;
