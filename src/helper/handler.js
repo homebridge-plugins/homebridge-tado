@@ -933,10 +933,11 @@ export default (api, accessories, config, tado, telegram) => {
             } else {
               currentState = 0;
               targetState = 0;
+              targetTemp = 5;
               active = 0;
             }
 
-            if (zoneState.overlayType === null) {
+            if (zoneState.overlayType === null && targetState !== 0) {
               currentState = 0;
               targetState = 3;
             }

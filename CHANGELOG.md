@@ -1,5 +1,8 @@
 # Changelog
 
+## v8.3.2 - 2025-10-26
+- Fix: Correctly display the heater as off in Apple Home when heating is disabled in Auto mode
+
 ## v8.3.1 - 2025-10-25
 - Fix: Persist zone states only if not empty
 
