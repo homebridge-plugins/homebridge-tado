@@ -36,7 +36,7 @@ const schema = {
         },
         'polling': {
           'title': 'Polling',
-          'description': 'The polling interval in seconds.',
+          'description': 'The polling interval in seconds (recommended value: 300).',
           'type': 'integer',
           'default': 300,
           'minimum': 30

@@ -1,5 +1,8 @@
 # Changelog
 
+## v8.5.0 - 2025-10-27
+- Change minimum polling interval to 30s due to improvements made in v8.2.0
+
 ## v8.4.0 - 2025-10-26
 - Improve state handling to ensure Apple Home states always reflect current tado states
 

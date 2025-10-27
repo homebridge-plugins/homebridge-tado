@@ -773,7 +773,7 @@ export default (api, accessories, config, tado, telegram) => {
     tasksInitialized = true;
 
     void getStates();
-    setInterval(() => getStates(), Math.max(config.polling, 300) * 1000);
+    setInterval(() => getStates(), Math.max(config.polling, 30) * 1000);
 
     void logCounter();
     setInterval(() => logCounter(), 60 * 60 * 1000);
