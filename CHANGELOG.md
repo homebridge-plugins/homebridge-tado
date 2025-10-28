@@ -1,5 +1,8 @@
 # Changelog
 
+## v8.5.1 - 2025-10-28
+- Fix: Incorrect update of config zone properties leading to unwanted heating changes (#178)
+
 ## v8.5.0 - 2025-10-27
 - Change minimum polling interval to 30s due to improvements made in v8.2.0
 
