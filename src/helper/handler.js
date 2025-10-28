@@ -875,36 +875,34 @@ export default (api, accessories, config, tado, telegram) => {
         }
       }
 
-      if (idToUpdate === undefined) {
-        const allZones = (await tado.getZones(config.homeId)) || [];
+      const allZones = (await tado.getZones(config.homeId)) || [];
 
-        for (const [index, zone] of config.zones.entries()) {
-          allZones.forEach((zoneWithID) => {
-            if (zoneWithID.name === zone.name) {
-              const heatAccessory = accessories.filter(
-                (acc) => acc && acc.displayName === config.homeName + ' ' + zone.name + ' Heater'
-              );
+      for (const [index, zone] of config.zones.entries()) {
+        allZones.forEach((zoneWithID) => {
+          if (zoneWithID.name === zone.name) {
+            const heatAccessory = accessories.filter(
+              (acc) => acc && acc.displayName === config.homeName + ' ' + zone.name + ' Heater'
+            );
 
-              if (heatAccessory.length) heatAccessory[0].context.config.zoneId = zoneWithID.id;
+            if (heatAccessory.length) heatAccessory[0].context.config.zoneId = zoneWithID.id;
 
-              config.zones[index].id = zoneWithID.id;
-              config.zones[index].battery = !config.zones[index].noBattery
-                ? zoneWithID.devices.filter(
-                  (device) =>
-                    device &&
-                    (zone.type === 'HEATING' || zone.type === 'AIR_CONDITIONING') &&
-                    typeof device.batteryState === 'string' &&
-                    !device.batteryState.includes('NORMAL')
-                ).length
-                  ? zoneWithID.devices.filter((device) => device && !device.batteryState.includes('NORMAL'))[0]
-                    .batteryState
-                  : zoneWithID.devices.filter((device) => device && device.duties.includes('ZONE_LEADER'))[0].batteryState
-                : false;
-              config.zones[index].openWindowEnabled =
-                zoneWithID.openWindowDetection && zoneWithID.openWindowDetection.enabled ? true : false;
-            }
-          });
-        }
+            config.zones[index].id = zoneWithID.id;
+            config.zones[index].battery = !config.zones[index].noBattery
+              ? zoneWithID.devices.filter(
+                (device) =>
+                  device &&
+                  (zone.type === 'HEATING' || zone.type === 'AIR_CONDITIONING') &&
+                  typeof device.batteryState === 'string' &&
+                  !device.batteryState.includes('NORMAL')
+              ).length
+                ? zoneWithID.devices.filter((device) => device && !device.batteryState.includes('NORMAL'))[0]
+                  .batteryState
+                : zoneWithID.devices.filter((device) => device && device.duties.includes('ZONE_LEADER'))[0].batteryState
+              : false;
+            config.zones[index].openWindowEnabled =
+              zoneWithID.openWindowDetection && zoneWithID.openWindowDetection.enabled ? true : false;
+          }
+        });
       }
 
       let zonesToUpdate = [];
