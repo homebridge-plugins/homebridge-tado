@@ -27,7 +27,6 @@ export default (api, accessories, config, tado, telegram) => {
 
   async function setStates(accessory, accs, target, value) {
     let zoneUpdated = false;
-    let allZonesUpdated = false;
 
     accessories = accs.filter((acc) => acc && acc.context.config.homeName === config.homeName);
 
@@ -376,7 +375,6 @@ export default (api, accessories, config, tado, telegram) => {
             }
           }
 
-          allZonesUpdated = true;
           await tado.setPresenceLock(config.homeId, targetState);
 
           break;
@@ -428,7 +426,6 @@ export default (api, accessories, config, tado, telegram) => {
                 })
                 .filter((id) => id);
 
-              allZonesUpdated = true;
               await tado.resumeShedule(config.homeId, roomIds);
 
               //Turn all back to AUTO/ON
@@ -553,7 +550,6 @@ export default (api, accessories, config, tado, telegram) => {
               .updateValue(false);
           }
 
-          allZonesUpdated = true;
           await tado.switchAll(config.homeId, rooms);
 
           break;
@@ -570,7 +566,7 @@ export default (api, accessories, config, tado, telegram) => {
       errorHandler(err);
     } finally {
       //always update zone to set correct state in Apple Home
-      if (zoneUpdated || allZonesUpdated) await updateZones(allZonesUpdated ? undefined : accessory.context.config.zoneId);
+      if (zoneUpdated) await updateZones(accessory.context.config.zoneId);
       settingState = false;
     }
   }
