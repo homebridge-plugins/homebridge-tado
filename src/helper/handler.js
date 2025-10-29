@@ -3,9 +3,9 @@ import moment from 'moment';
 import { writeFile, access, readFile } from 'fs/promises';
 import { join } from "path";
 
-var settingState = false;
-var delayTimer = {};
+let settingState = false;
 let tasksInitialized = false;
+const delayTimer = {};
 
 const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
 const aRefreshHistoryHandlers = [];
@@ -746,7 +746,7 @@ export default (api, accessories, config, tado, telegram) => {
     }
     try {
       //wait for fakegato history services to be loaded
-      await new Promise(r => setTimeout(r, 4000));
+      await timeout(4000);
       for (const refreshHistory of aRefreshHistoryHandlers) {
         refreshHistory();
       }
@@ -809,413 +809,391 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   async function updateMe() {
-    if (!settingState) {
-      Logger.debug('Polling User Info...', config.homeName);
+    if (settingState) return;
 
-      const me = await tado.getMe();
+    Logger.debug('Polling User Info...', config.homeName);
 
-      if (config.homeName !== me.homes[0].name) throw ('Cannot find requested home in the API!', config.homeName);
+    const me = await tado.getMe();
 
-      config.homeId = me.homes[0].id;
-    }
+    if (config.homeName !== me.homes[0].name) throw ('Cannot find requested home in the API!', config.homeName);
 
-    return;
+    config.homeId = me.homes[0].id;
   }
 
   async function updateHome() {
-    if (!settingState) {
-      Logger.debug('Polling Home Info...', config.homeName);
+    if (settingState) return;
 
-      const home = await tado.getHome(config.homeId);
+    Logger.debug('Polling Home Info...', config.homeName);
 
-      if (!config.temperatureUnit) config.temperatureUnit = home.temperatureUnit || 'CELSIUS';
+    const home = await tado.getHome(config.homeId);
 
-      //config.skills = home.skills || []; //do we need this?
+    if (!config.temperatureUnit) config.temperatureUnit = home.temperatureUnit || 'CELSIUS';
 
-      if (
-        !config.geolocation ||
-        (config.geolocation && !config.geolocation.longitude) ||
-        !config.geolocation.latitude
-      ) {
-        if (!home.geolocation) home.geolocation = {};
+    //config.skills = home.skills || []; //do we need this?
 
-        config.geolocation = {
-          longitude: (home.geolocation.longitude || '').toString() || false,
-          latitude: (home.geolocation.latitude || '').toString() || false,
-        };
-      }
+    if (
+      !config.geolocation ||
+      (config.geolocation && !config.geolocation.longitude) ||
+      !config.geolocation.latitude
+    ) {
+      if (!home.geolocation) home.geolocation = {};
+
+      config.geolocation = {
+        longitude: (home.geolocation.longitude || '').toString() || false,
+        latitude: (home.geolocation.latitude || '').toString() || false,
+      };
     }
-
-    return;
   }
 
   async function updateZones(idToUpdate) {
     let zoneStates = {};
-    if (!settingState || idToUpdate !== undefined) {
-      Logger.debug('Polling Zones...', config.homeName);
+    if (settingState && idToUpdate === undefined) {
+      await timeout(10 * 1000);
+      if (settingState) return zoneStates;
+    }
 
-      //CentralSwitch
-      let inManualMode = 0;
-      let inOffMode = 0;
-      let inAutoMode = 0;
+    Logger.debug('Polling Zones...', config.homeName);
 
-      let zonesWithoutID = config.zones.filter((zone) => zone && !zone.id);
+    //CentralSwitch
+    let inManualMode = 0;
+    let inOffMode = 0;
+    let inAutoMode = 0;
 
-      if (zonesWithoutID.length) {
-        const allZones = (await tado.getZones(config.homeId)) || [];
+    let zonesWithoutID = config.zones.filter((zone) => zone && !zone.id);
 
-        for (const [index, zone] of config.zones.entries()) {
-          allZones.forEach((zoneWithID) => {
-            if (zoneWithID.name === zone.name) config.zones[index].id = zoneWithID.id;
-          });
-        }
-      }
-
+    if (zonesWithoutID.length) {
       const allZones = (await tado.getZones(config.homeId)) || [];
 
       for (const [index, zone] of config.zones.entries()) {
         allZones.forEach((zoneWithID) => {
-          if (zoneWithID.name === zone.name) {
-            const heatAccessory = accessories.filter(
-              (acc) => acc && acc.displayName === config.homeName + ' ' + zone.name + ' Heater'
-            );
-
-            if (heatAccessory.length) heatAccessory[0].context.config.zoneId = zoneWithID.id;
-
-            config.zones[index].id = zoneWithID.id;
-            config.zones[index].battery = !config.zones[index].noBattery
-              ? zoneWithID.devices.filter(
-                (device) =>
-                  device &&
-                  (zone.type === 'HEATING' || zone.type === 'AIR_CONDITIONING') &&
-                  typeof device.batteryState === 'string' &&
-                  !device.batteryState.includes('NORMAL')
-              ).length
-                ? zoneWithID.devices.filter((device) => device && !device.batteryState.includes('NORMAL'))[0]
-                  .batteryState
-                : zoneWithID.devices.filter((device) => device && device.duties.includes('ZONE_LEADER'))[0].batteryState
-              : false;
-            config.zones[index].openWindowEnabled =
-              zoneWithID.openWindowDetection && zoneWithID.openWindowDetection.enabled ? true : false;
-          }
+          if (zoneWithID.name === zone.name) config.zones[index].id = zoneWithID.id;
         });
       }
+    }
 
-      let zonesToUpdate = [];
-      if (idToUpdate !== undefined) {
-        zoneStates[idToUpdate] = await tado.getZoneState(config.homeId, idToUpdate);
-        zonesToUpdate = config.zones.filter(zone => zone.id === idToUpdate);
-      } else {
-        zoneStates = (await tado.getZoneStates(config.homeId))["zoneStates"];
-        zonesToUpdate = config.zones;
-      }
+    const allZones = (await tado.getZones(config.homeId)) || [];
 
-      for (const zone of zonesToUpdate) {
-        const zoneState = zoneStates[zone.id];
-
-        let currentState, targetState, currentTemp, targetTemp, humidity, active, battery, tempEqual;
-
-        if (zoneState.setting.type === 'HEATING') {
-          battery = zone.battery === 'NORMAL' ? 100 : 10;
-
-          if (zoneState.sensorDataPoints.humidity) humidity = zoneState.sensorDataPoints.humidity.percentage;
-
-          //HEATING
-          if (zoneState.sensorDataPoints.insideTemperature) {
-            currentTemp =
-              config.temperatureUnit === 'FAHRENHEIT'
-                ? zoneState.sensorDataPoints.insideTemperature.fahrenheit
-                : zoneState.sensorDataPoints.insideTemperature.celsius;
-
-            if (zoneState.setting.power === 'ON') {
-              targetTemp =
-                config.temperatureUnit === 'FAHRENHEIT'
-                  ? zoneState.setting.temperature.fahrenheit
-                  : zoneState.setting.temperature.celsius;
-
-              tempEqual = Math.round(currentTemp) === Math.round(targetTemp);
-
-              //show as currently heating if current temp is lower than target temp, otherwise show as temp set
-              currentState = currentTemp < targetTemp ? 1 : 0;
-
-              //check if auto mode is enabled
-              targetState = zoneState.overlayType === null ? 3 : 1;
-
-              active = 1;
-            } else {
-              //heating is switched off
-              currentState = 0;
-              targetState = 0;
-              active = 0;
-            }
-
-            if (targetState === undefined && zoneState.overlayType === null) {
-              targetState = 3;
-            }
-          }
-
-          //Thermostat/HeaterCooler
-          const thermoAccessory = accessories.filter(
-            (acc) =>
-              acc &&
-              (acc.context.config.subtype === 'zone-thermostat' ||
-                acc.context.config.subtype === 'zone-heatercooler' ||
-                acc.context.config.subtype === 'zone-heatercooler-ac')
+    for (const [index, zone] of config.zones.entries()) {
+      allZones.forEach((zoneWithID) => {
+        if (zoneWithID.name === zone.name) {
+          const heatAccessory = accessories.filter(
+            (acc) => acc && acc.displayName === config.homeName + ' ' + zone.name + ' Heater'
           );
 
-          if (thermoAccessory.length) {
-            thermoAccessory.forEach((acc) => {
-              if (acc.displayName.includes(zone.name)) {
-                let serviceThermostat = acc.getService(api.hap.Service.Thermostat);
-                let serviceHeaterCooler = acc.getService(api.hap.Service.HeaterCooler);
+          if (heatAccessory.length) heatAccessory[0].context.config.zoneId = zoneWithID.id;
 
-                let serviceBattery = acc.getService(api.hap.Service.BatteryService);
-                let characteristicBattery = api.hap.Characteristic.BatteryLevel;
+          config.zones[index].id = zoneWithID.id;
+          config.zones[index].battery = !config.zones[index].noBattery
+            ? zoneWithID.devices.filter(
+              (device) =>
+                device &&
+                (zone.type === 'HEATING' || zone.type === 'AIR_CONDITIONING') &&
+                typeof device.batteryState === 'string' &&
+                !device.batteryState.includes('NORMAL')
+            ).length
+              ? zoneWithID.devices.filter((device) => device && !device.batteryState.includes('NORMAL'))[0]
+                .batteryState
+              : zoneWithID.devices.filter((device) => device && device.duties.includes('ZONE_LEADER'))[0].batteryState
+            : false;
+          config.zones[index].openWindowEnabled =
+            zoneWithID.openWindowDetection && zoneWithID.openWindowDetection.enabled ? true : false;
+        }
+      });
+    }
 
-                if (serviceBattery && zone.battery) {
-                  serviceBattery.getCharacteristic(characteristicBattery).updateValue(battery);
-                }
+    let zonesToUpdate = [];
+    if (idToUpdate !== undefined) {
+      zoneStates[idToUpdate] = await tado.getZoneState(config.homeId, idToUpdate);
+      zonesToUpdate = config.zones.filter(zone => zone.id === idToUpdate);
+    } else {
+      zoneStates = (await tado.getZoneStates(config.homeId))["zoneStates"];
+      zonesToUpdate = config.zones;
+    }
 
-                if (serviceThermostat) {
-                  let characteristicCurrentTemp = api.hap.Characteristic.CurrentTemperature;
-                  let characteristicTargetTemp = api.hap.Characteristic.TargetTemperature;
-                  let characteristicCurrentState = api.hap.Characteristic.CurrentHeatingCoolingState;
-                  let characteristicTargetState = api.hap.Characteristic.TargetHeatingCoolingState;
-                  let characteristicHumidity = api.hap.Characteristic.CurrentRelativeHumidity;
-                  let characteristicUnit = api.hap.Characteristic.TemperatureDisplayUnits;
+    for (const zone of zonesToUpdate) {
+      const zoneState = zoneStates[zone.id];
 
-                  if (!isNaN(currentTemp)) {
-                    acc.context.config.temperatureUnit = acc.context.config.temperatureUnit || config.temperatureUnit;
+      let currentState, targetState, currentTemp, targetTemp, humidity, active, battery, tempEqual;
 
-                    let isFahrenheit = serviceThermostat.getCharacteristic(characteristicUnit).value === 1;
-                    let unitChanged = config.temperatureUnit !== acc.context.config.temperatureUnit;
+      if (zoneState.setting.type === 'HEATING') {
+        battery = zone.battery === 'NORMAL' ? 100 : 10;
 
-                    let cToF = (c) => Math.round((c * 9) / 5 + 32);
-                    let fToC = (f) => Math.round(((f - 32) * 5) / 9);
+        if (zoneState.sensorDataPoints.humidity) humidity = zoneState.sensorDataPoints.humidity.percentage;
 
-                    let newValue = unitChanged ? (isFahrenheit ? cToF(currentTemp) : fToC(currentTemp)) : currentTemp;
-
-                    serviceThermostat.getCharacteristic(characteristicCurrentTemp).updateValue(newValue);
-                  }
-
-                  if (!isNaN(targetTemp))
-                    serviceThermostat.getCharacteristic(characteristicTargetTemp).updateValue(targetTemp);
-
-                  if (!isNaN(currentState))
-                    serviceThermostat.getCharacteristic(characteristicCurrentState).updateValue(currentState);
-
-                  if (!isNaN(targetState))
-                    serviceThermostat.getCharacteristic(characteristicTargetState).updateValue(targetState);
-
-                  if (!isNaN(humidity) && serviceThermostat.testCharacteristic(characteristicHumidity))
-                    serviceThermostat.getCharacteristic(characteristicHumidity).updateValue(humidity);
-                }
-
-                if (serviceHeaterCooler) {
-                  let characteristicHumidity = api.hap.Characteristic.CurrentRelativeHumidity;
-                  let characteristicCurrentTemp = api.hap.Characteristic.CurrentTemperature;
-                  let characteristicTargetTempHeating = api.hap.Characteristic.HeatingThresholdTemperature;
-                  let characteristicTargetTempCooling = api.hap.Characteristic.CoolingThresholdTemperature;
-                  let characteristicCurrentState = api.hap.Characteristic.CurrentHeaterCoolerState;
-                  let characteristicTargetState = api.hap.Characteristic.TargetHeaterCoolerState;
-                  let characteristicActive = api.hap.Characteristic.Active;
-
-                  currentState = active ? (targetState === 3 || tempEqual ? 1 : currentState + 1) : 0;
-
-                  targetState = 1;
-
-                  if (!isNaN(active)) serviceHeaterCooler.getCharacteristic(characteristicActive).updateValue(active);
-
-                  if (!isNaN(currentTemp))
-                    serviceHeaterCooler.getCharacteristic(characteristicCurrentTemp).updateValue(currentTemp);
-
-                  if (!isNaN(targetTemp)) {
-                    serviceHeaterCooler.getCharacteristic(characteristicTargetTempHeating).updateValue(targetTemp);
-
-                    serviceHeaterCooler.getCharacteristic(characteristicTargetTempCooling).updateValue(targetTemp);
-                  }
-
-                  if (!isNaN(currentState))
-                    serviceHeaterCooler.getCharacteristic(characteristicCurrentState).updateValue(currentState);
-
-                  if (!isNaN(targetState))
-                    serviceHeaterCooler.getCharacteristic(characteristicTargetState).updateValue(targetState);
-
-                  if (!isNaN(humidity) && serviceHeaterCooler.testCharacteristic(characteristicHumidity))
-                    serviceHeaterCooler.getCharacteristic(characteristicHumidity).updateValue(humidity);
-                }
-              }
-            });
-          }
-        } else {
-          // Non-HEATING zones (AIR_CONDITIONING, HOT_WATER, etc.)
-          battery = zone.battery === 'NORMAL' ? 100 : 10;
-
-          if (zoneState.sensorDataPoints.humidity) {
-            humidity = zoneState.sensorDataPoints.humidity.percentage;
-          }
-
-          // Get current temperature from sensor data (same as HEATING zones)
-          if (zoneState.sensorDataPoints.insideTemperature) {
-            currentTemp =
-              config.temperatureUnit === 'FAHRENHEIT'
-                ? zoneState.sensorDataPoints.insideTemperature.fahrenheit
-                : zoneState.sensorDataPoints.insideTemperature.celsius;
-          }
+        //HEATING
+        if (zoneState.sensorDataPoints.insideTemperature) {
+          currentTemp =
+            config.temperatureUnit === 'FAHRENHEIT'
+              ? zoneState.sensorDataPoints.insideTemperature.fahrenheit
+              : zoneState.sensorDataPoints.insideTemperature.celsius;
 
           if (zoneState.setting.power === 'ON') {
-            active = 1;
-
-            // Get target temperature from setting
             targetTemp =
-              zoneState.setting.temperature !== null && zoneState.setting.temperature
-                ? config.temperatureUnit === 'FAHRENHEIT'
-                  ? zoneState.setting.temperature.fahrenheit
-                  : zoneState.setting.temperature.celsius
-                : undefined;
+              config.temperatureUnit === 'FAHRENHEIT'
+                ? zoneState.setting.temperature.fahrenheit
+                : zoneState.setting.temperature.celsius;
 
-            // Enhanced AC state handling
-            if (zone.type === 'AIR_CONDITIONING') {
-              const acMode = zoneState.setting.mode || 'COOL';
-              tempEqual = currentTemp && targetTemp ? Math.abs(currentTemp - targetTemp) < 0.5 : false;
+            tempEqual = Math.round(currentTemp) === Math.round(targetTemp);
 
-              // Map AC modes to HomeKit states
-              switch (acMode.toUpperCase()) {
-                case 'HEAT':
-                  targetState = 1; // Heating
-                  currentState = tempEqual ? 1 : (currentTemp < targetTemp ? 2 : 1); // Idle or Heating
-                  break;
-                case 'COOL':
-                case 'AUTO':
-                default:
-                  targetState = 2; // Cooling
-                  currentState = tempEqual ? 1 : (currentTemp > targetTemp ? 3 : 1); // Idle or Cooling
-                  break;
-              }
-            } else {
-              // Non-AC zones (HOT_WATER, etc.)
-              currentState = zoneState.overlayType === null ? 1 : 2;
-              targetState = 1;
-            }
+            //show as currently heating if current temp is lower than target temp, otherwise show as temp set
+            currentState = currentTemp < targetTemp ? 1 : 0;
+
+            //check if auto mode is enabled
+            targetState = zoneState.overlayType === null ? 3 : 1;
+
+            active = 1;
           } else {
-            active = 0;
+            //heating is switched off
             currentState = 0;
-            targetTemp = undefined;
-            targetState = zone.type === 'AIR_CONDITIONING' ? 2 : 1; // Default to cooling for AC, heating for others
+            targetState = 0;
+            active = 0;
           }
 
-          //Thermostat/HeaterCooler
-          const heaterAccessory = accessories.filter(
-            (acc) => acc && (acc.context.config.subtype === 'zone-heatercooler-boiler' ||
-              acc.context.config.subtype === 'zone-heatercooler-ac')
-          );
-          const switchAccessory = accessories.filter((acc) => acc && acc.context.config.subtype === 'zone-switch');
-          const faucetAccessory = accessories.filter((acc) => acc && acc.context.config.subtype === 'zone-faucet');
-
-          if (heaterAccessory.length) {
-            heaterAccessory.forEach((acc) => {
-              if (acc.displayName.includes(zone.name)) {
-                let service = acc.getService(api.hap.Service.HeaterCooler);
-
-                let characteristicCurrentTemp = api.hap.Characteristic.CurrentTemperature;
-                let characteristicActive = api.hap.Characteristic.Active;
-                let characteristicCurrentState = api.hap.Characteristic.CurrentHeaterCoolerState;
-                let characteristicTargetState = api.hap.Characteristic.TargetHeaterCoolerState;
-                let characteristicTargetTempHeating = api.hap.Characteristic.HeatingThresholdTemperature;
-                let characteristicTargetTempCooling = api.hap.Characteristic.CoolingThresholdTemperature;
-
-                service.getCharacteristic(characteristicActive).updateValue(active);
-
-                service.getCharacteristic(characteristicCurrentState).updateValue(currentState);
-
-                service.getCharacteristic(characteristicTargetState).updateValue(targetState);
-
-                // Set current temperature from sensor data
-                if (!isNaN(currentTemp) || acc.context.currentTemp) {
-                  if (!isNaN(currentTemp)) acc.context.currentTemp = currentTemp; //store current temp in config
-
-                  service.getCharacteristic(characteristicCurrentTemp).updateValue(acc.context.currentTemp);
-                }
-
-                // Set target temperature for both heating and cooling
-                if (!isNaN(targetTemp)) {
-                  // For AC zones, set temperature based on the mode
-                  if (zone.type === 'AIR_CONDITIONING') {
-                    // Always set both characteristics but log which one is active
-                    service.getCharacteristic(characteristicTargetTempHeating).updateValue(targetTemp);
-                    service.getCharacteristic(characteristicTargetTempCooling).updateValue(targetTemp);
-                  } else {
-                    // Non-AC zones (like boiler/hot water)
-                    service.getCharacteristic(characteristicTargetTempHeating).updateValue(targetTemp);
-                    service.getCharacteristic(characteristicTargetTempCooling).updateValue(targetTemp);
-                  }
-                }
-
-                // Fan speed polling removed for AIR_CONDITIONING zones
-
-                // Update humidity for all zones that support it
-                if (!isNaN(humidity) && service.testCharacteristic(api.hap.Characteristic.CurrentRelativeHumidity)) {
-                  service.getCharacteristic(api.hap.Characteristic.CurrentRelativeHumidity).updateValue(humidity);
-                }
-              }
-            });
-          }
-
-          if (switchAccessory.length) {
-            switchAccessory.forEach((acc) => {
-              if (acc.displayName.includes(zone.name)) {
-                let service = acc.getService(api.hap.Service.Switch);
-
-                let characteristic = api.hap.Characteristic.On;
-
-                service.getCharacteristic(characteristic).updateValue(active ? true : false);
-              }
-            });
-          }
-
-          if (faucetAccessory.length) {
-            faucetAccessory.forEach((acc) => {
-              if (acc.displayName.includes(zone.name)) {
-                let service = acc.getService(api.hap.Service.Valve);
-
-                let characteristicActive = api.hap.Characteristic.Active;
-                let characteristicInUse = api.hap.Characteristic.InUse;
-
-                service.getCharacteristic(characteristicActive).updateValue(active ? 1 : 0);
-
-                service.getCharacteristic(characteristicInUse).updateValue(active ? 1 : 0);
-              }
-            });
+          if (targetState === undefined && zoneState.overlayType === null) {
+            targetState = 3;
           }
         }
 
-        //TemperatureSensor
-        const tempAccessory = accessories.filter((acc) => acc && acc.context.config.subtype === 'zone-temperature');
+        //Thermostat/HeaterCooler
+        const thermoAccessory = accessories.filter(
+          (acc) =>
+            acc &&
+            (acc.context.config.subtype === 'zone-thermostat' ||
+              acc.context.config.subtype === 'zone-heatercooler' ||
+              acc.context.config.subtype === 'zone-heatercooler-ac')
+        );
 
-        if (tempAccessory.length) {
-          tempAccessory.forEach((acc) => {
+        if (thermoAccessory.length) {
+          thermoAccessory.forEach((acc) => {
             if (acc.displayName.includes(zone.name)) {
+              let serviceThermostat = acc.getService(api.hap.Service.Thermostat);
+              let serviceHeaterCooler = acc.getService(api.hap.Service.HeaterCooler);
+
               let serviceBattery = acc.getService(api.hap.Service.BatteryService);
               let characteristicBattery = api.hap.Characteristic.BatteryLevel;
 
-              if (serviceBattery && !isNaN(battery)) {
+              if (serviceBattery && zone.battery) {
                 serviceBattery.getCharacteristic(characteristicBattery).updateValue(battery);
               }
 
-              if (!isNaN(currentTemp)) {
-                let service = acc.getService(api.hap.Service.TemperatureSensor);
-                let characteristic = api.hap.Characteristic.CurrentTemperature;
+              if (serviceThermostat) {
+                let characteristicCurrentTemp = api.hap.Characteristic.CurrentTemperature;
+                let characteristicTargetTemp = api.hap.Characteristic.TargetTemperature;
+                let characteristicCurrentState = api.hap.Characteristic.CurrentHeatingCoolingState;
+                let characteristicTargetState = api.hap.Characteristic.TargetHeatingCoolingState;
+                let characteristicHumidity = api.hap.Characteristic.CurrentRelativeHumidity;
+                let characteristicUnit = api.hap.Characteristic.TemperatureDisplayUnits;
 
-                service.getCharacteristic(characteristic).updateValue(currentTemp);
+                if (!isNaN(currentTemp)) {
+                  acc.context.config.temperatureUnit = acc.context.config.temperatureUnit || config.temperatureUnit;
+
+                  let isFahrenheit = serviceThermostat.getCharacteristic(characteristicUnit).value === 1;
+                  let unitChanged = config.temperatureUnit !== acc.context.config.temperatureUnit;
+
+                  let cToF = (c) => Math.round((c * 9) / 5 + 32);
+                  let fToC = (f) => Math.round(((f - 32) * 5) / 9);
+
+                  let newValue = unitChanged ? (isFahrenheit ? cToF(currentTemp) : fToC(currentTemp)) : currentTemp;
+
+                  serviceThermostat.getCharacteristic(characteristicCurrentTemp).updateValue(newValue);
+                }
+
+                if (!isNaN(targetTemp))
+                  serviceThermostat.getCharacteristic(characteristicTargetTemp).updateValue(targetTemp);
+
+                if (!isNaN(currentState))
+                  serviceThermostat.getCharacteristic(characteristicCurrentState).updateValue(currentState);
+
+                if (!isNaN(targetState))
+                  serviceThermostat.getCharacteristic(characteristicTargetState).updateValue(targetState);
+
+                if (!isNaN(humidity) && serviceThermostat.testCharacteristic(characteristicHumidity))
+                  serviceThermostat.getCharacteristic(characteristicHumidity).updateValue(humidity);
+              }
+
+              if (serviceHeaterCooler) {
+                let characteristicHumidity = api.hap.Characteristic.CurrentRelativeHumidity;
+                let characteristicCurrentTemp = api.hap.Characteristic.CurrentTemperature;
+                let characteristicTargetTempHeating = api.hap.Characteristic.HeatingThresholdTemperature;
+                let characteristicTargetTempCooling = api.hap.Characteristic.CoolingThresholdTemperature;
+                let characteristicCurrentState = api.hap.Characteristic.CurrentHeaterCoolerState;
+                let characteristicTargetState = api.hap.Characteristic.TargetHeaterCoolerState;
+                let characteristicActive = api.hap.Characteristic.Active;
+
+                currentState = active ? (targetState === 3 || tempEqual ? 1 : currentState + 1) : 0;
+
+                targetState = 1;
+
+                if (!isNaN(active)) serviceHeaterCooler.getCharacteristic(characteristicActive).updateValue(active);
+
+                if (!isNaN(currentTemp))
+                  serviceHeaterCooler.getCharacteristic(characteristicCurrentTemp).updateValue(currentTemp);
+
+                if (!isNaN(targetTemp)) {
+                  serviceHeaterCooler.getCharacteristic(characteristicTargetTempHeating).updateValue(targetTemp);
+
+                  serviceHeaterCooler.getCharacteristic(characteristicTargetTempCooling).updateValue(targetTemp);
+                }
+
+                if (!isNaN(currentState))
+                  serviceHeaterCooler.getCharacteristic(characteristicCurrentState).updateValue(currentState);
+
+                if (!isNaN(targetState))
+                  serviceHeaterCooler.getCharacteristic(characteristicTargetState).updateValue(targetState);
+
+                if (!isNaN(humidity) && serviceHeaterCooler.testCharacteristic(characteristicHumidity))
+                  serviceHeaterCooler.getCharacteristic(characteristicHumidity).updateValue(humidity);
+              }
+            }
+          });
+        }
+      } else {
+        // Non-HEATING zones (AIR_CONDITIONING, HOT_WATER, etc.)
+        battery = zone.battery === 'NORMAL' ? 100 : 10;
+
+        if (zoneState.sensorDataPoints.humidity) {
+          humidity = zoneState.sensorDataPoints.humidity.percentage;
+        }
+
+        // Get current temperature from sensor data (same as HEATING zones)
+        if (zoneState.sensorDataPoints.insideTemperature) {
+          currentTemp =
+            config.temperatureUnit === 'FAHRENHEIT'
+              ? zoneState.sensorDataPoints.insideTemperature.fahrenheit
+              : zoneState.sensorDataPoints.insideTemperature.celsius;
+        }
+
+        if (zoneState.setting.power === 'ON') {
+          active = 1;
+
+          // Get target temperature from setting
+          targetTemp =
+            zoneState.setting.temperature !== null && zoneState.setting.temperature
+              ? config.temperatureUnit === 'FAHRENHEIT'
+                ? zoneState.setting.temperature.fahrenheit
+                : zoneState.setting.temperature.celsius
+              : undefined;
+
+          // Enhanced AC state handling
+          if (zone.type === 'AIR_CONDITIONING') {
+            const acMode = zoneState.setting.mode || 'COOL';
+            tempEqual = currentTemp && targetTemp ? Math.abs(currentTemp - targetTemp) < 0.5 : false;
+
+            // Map AC modes to HomeKit states
+            switch (acMode.toUpperCase()) {
+              case 'HEAT':
+                targetState = 1; // Heating
+                currentState = tempEqual ? 1 : (currentTemp < targetTemp ? 2 : 1); // Idle or Heating
+                break;
+              case 'COOL':
+              case 'AUTO':
+              default:
+                targetState = 2; // Cooling
+                currentState = tempEqual ? 1 : (currentTemp > targetTemp ? 3 : 1); // Idle or Cooling
+                break;
+            }
+          } else {
+            // Non-AC zones (HOT_WATER, etc.)
+            currentState = zoneState.overlayType === null ? 1 : 2;
+            targetState = 1;
+          }
+        } else {
+          active = 0;
+          currentState = 0;
+          targetTemp = undefined;
+          targetState = zone.type === 'AIR_CONDITIONING' ? 2 : 1; // Default to cooling for AC, heating for others
+        }
+
+        //Thermostat/HeaterCooler
+        const heaterAccessory = accessories.filter(
+          (acc) => acc && (acc.context.config.subtype === 'zone-heatercooler-boiler' ||
+            acc.context.config.subtype === 'zone-heatercooler-ac')
+        );
+        const switchAccessory = accessories.filter((acc) => acc && acc.context.config.subtype === 'zone-switch');
+        const faucetAccessory = accessories.filter((acc) => acc && acc.context.config.subtype === 'zone-faucet');
+
+        if (heaterAccessory.length) {
+          heaterAccessory.forEach((acc) => {
+            if (acc.displayName.includes(zone.name)) {
+              let service = acc.getService(api.hap.Service.HeaterCooler);
+
+              let characteristicCurrentTemp = api.hap.Characteristic.CurrentTemperature;
+              let characteristicActive = api.hap.Characteristic.Active;
+              let characteristicCurrentState = api.hap.Characteristic.CurrentHeaterCoolerState;
+              let characteristicTargetState = api.hap.Characteristic.TargetHeaterCoolerState;
+              let characteristicTargetTempHeating = api.hap.Characteristic.HeatingThresholdTemperature;
+              let characteristicTargetTempCooling = api.hap.Characteristic.CoolingThresholdTemperature;
+
+              service.getCharacteristic(characteristicActive).updateValue(active);
+
+              service.getCharacteristic(characteristicCurrentState).updateValue(currentState);
+
+              service.getCharacteristic(characteristicTargetState).updateValue(targetState);
+
+              // Set current temperature from sensor data
+              if (!isNaN(currentTemp) || acc.context.currentTemp) {
+                if (!isNaN(currentTemp)) acc.context.currentTemp = currentTemp; //store current temp in config
+
+                service.getCharacteristic(characteristicCurrentTemp).updateValue(acc.context.currentTemp);
+              }
+
+              // Set target temperature for both heating and cooling
+              if (!isNaN(targetTemp)) {
+                // For AC zones, set temperature based on the mode
+                if (zone.type === 'AIR_CONDITIONING') {
+                  // Always set both characteristics but log which one is active
+                  service.getCharacteristic(characteristicTargetTempHeating).updateValue(targetTemp);
+                  service.getCharacteristic(characteristicTargetTempCooling).updateValue(targetTemp);
+                } else {
+                  // Non-AC zones (like boiler/hot water)
+                  service.getCharacteristic(characteristicTargetTempHeating).updateValue(targetTemp);
+                  service.getCharacteristic(characteristicTargetTempCooling).updateValue(targetTemp);
+                }
+              }
+
+              // Fan speed polling removed for AIR_CONDITIONING zones
+
+              // Update humidity for all zones that support it
+              if (!isNaN(humidity) && service.testCharacteristic(api.hap.Characteristic.CurrentRelativeHumidity)) {
+                service.getCharacteristic(api.hap.Characteristic.CurrentRelativeHumidity).updateValue(humidity);
               }
             }
           });
         }
 
-        //HumiditySensor
-        const humidityAccessory = accessories.filter((acc) => acc && acc.context.config.subtype === 'zone-humidity');
+        if (switchAccessory.length) {
+          switchAccessory.forEach((acc) => {
+            if (acc.displayName.includes(zone.name)) {
+              let service = acc.getService(api.hap.Service.Switch);
 
-        humidityAccessory.forEach((acc) => {
+              let characteristic = api.hap.Characteristic.On;
+
+              service.getCharacteristic(characteristic).updateValue(active ? true : false);
+            }
+          });
+        }
+
+        if (faucetAccessory.length) {
+          faucetAccessory.forEach((acc) => {
+            if (acc.displayName.includes(zone.name)) {
+              let service = acc.getService(api.hap.Service.Valve);
+
+              let characteristicActive = api.hap.Characteristic.Active;
+              let characteristicInUse = api.hap.Characteristic.InUse;
+
+              service.getCharacteristic(characteristicActive).updateValue(active ? 1 : 0);
+
+              service.getCharacteristic(characteristicInUse).updateValue(active ? 1 : 0);
+            }
+          });
+        }
+      }
+
+      //TemperatureSensor
+      const tempAccessory = accessories.filter((acc) => acc && acc.context.config.subtype === 'zone-temperature');
+
+      if (tempAccessory.length) {
+        tempAccessory.forEach((acc) => {
           if (acc.displayName.includes(zone.name)) {
             let serviceBattery = acc.getService(api.hap.Service.BatteryService);
             let characteristicBattery = api.hap.Characteristic.BatteryLevel;
@@ -1224,327 +1202,340 @@ export default (api, accessories, config, tado, telegram) => {
               serviceBattery.getCharacteristic(characteristicBattery).updateValue(battery);
             }
 
-            if (!isNaN(humidity)) {
-              let service = acc.getService(api.hap.Service.HumiditySensor);
-              let characteristic = api.hap.Characteristic.CurrentRelativeHumidity;
+            if (!isNaN(currentTemp)) {
+              let service = acc.getService(api.hap.Service.TemperatureSensor);
+              let characteristic = api.hap.Characteristic.CurrentTemperature;
 
-              service.getCharacteristic(characteristic).updateValue(humidity);
+              service.getCharacteristic(characteristic).updateValue(currentTemp);
             }
           }
         });
-
-        //WindowSensor
-        const windowContactAccessory = accessories.filter(
-          (acc) => acc && acc.context.config.subtype === 'zone-window-contact'
-        );
-        const windowSwitchAccessory = accessories.filter(
-          (acc) => acc && acc.displayName === acc.context.config.homeName + ' Open Window'
-        );
-
-        if (windowContactAccessory.length) {
-          windowContactAccessory.forEach((acc) => {
-            if (acc.displayName.includes(zone.name)) {
-              let serviceBattery = acc.getService(api.hap.Service.BatteryService);
-              let characteristicBattery = api.hap.Characteristic.BatteryLevel;
-
-              if (serviceBattery && !isNaN(battery)) {
-                serviceBattery.getCharacteristic(characteristicBattery).updateValue(battery);
-              }
-
-              let service = acc.getService(api.hap.Service.ContactSensor);
-              let characteristic = api.hap.Characteristic.ContactSensorState;
-
-              let state = zoneState.openWindow || zoneState.openWindowDetected ? 1 : 0;
-
-              service.getCharacteristic(characteristic).updateValue(state);
-            }
-          });
-        }
-
-        if (windowSwitchAccessory.length) {
-          windowSwitchAccessory[0].services.forEach((switchService) => {
-            if (switchService.subtype && switchService.subtype.includes(zone.name)) {
-              let service = windowSwitchAccessory[0].getServiceById(api.hap.Service.Switch, switchService.subtype);
-              let characteristic = api.hap.Characteristic.On;
-
-              let state = zone.openWindowEnabled ? true : false;
-
-              service.getCharacteristic(characteristic).updateValue(state);
-            }
-          });
-        }
-
-        if (zoneState.setting.type === 'HEATING') {
-          //CentralSwitch
-          if (zoneState.overlayType === null) inAutoMode += 1;
-
-          if (zoneState.overlayType !== null && zoneState.setting.power === 'OFF') inOffMode += 1;
-
-          if (zoneState.overlayType !== null && zoneState.setting.power === 'ON' && zoneState.overlay.termination)
-            inManualMode += 1;
-        }
       }
 
-      //CentralSwitch
-      const centralSwitchAccessory = accessories.filter(
-        (acc) => acc && acc.displayName === acc.context.config.homeName + ' Central Switch'
+      //HumiditySensor
+      const humidityAccessory = accessories.filter((acc) => acc && acc.context.config.subtype === 'zone-humidity');
+
+      humidityAccessory.forEach((acc) => {
+        if (acc.displayName.includes(zone.name)) {
+          let serviceBattery = acc.getService(api.hap.Service.BatteryService);
+          let characteristicBattery = api.hap.Characteristic.BatteryLevel;
+
+          if (serviceBattery && !isNaN(battery)) {
+            serviceBattery.getCharacteristic(characteristicBattery).updateValue(battery);
+          }
+
+          if (!isNaN(humidity)) {
+            let service = acc.getService(api.hap.Service.HumiditySensor);
+            let characteristic = api.hap.Characteristic.CurrentRelativeHumidity;
+
+            service.getCharacteristic(characteristic).updateValue(humidity);
+          }
+        }
+      });
+
+      //WindowSensor
+      const windowContactAccessory = accessories.filter(
+        (acc) => acc && acc.context.config.subtype === 'zone-window-contact'
+      );
+      const windowSwitchAccessory = accessories.filter(
+        (acc) => acc && acc.displayName === acc.context.config.homeName + ' Open Window'
       );
 
-      if (centralSwitchAccessory.length) {
-        centralSwitchAccessory[0].services.forEach((service) => {
-          if (service.subtype === 'Central') {
-            let serviceSwitch = centralSwitchAccessory[0].getServiceById(api.hap.Service.Switch, service.subtype);
-            let characteristicOn = api.hap.Characteristic.On;
-            let characteristicAuto = api.hap.Characteristic.AutoThermostats;
-            let characteristicOff = api.hap.Characteristic.OfflineThermostats;
-            let characteristicManual = api.hap.Characteristic.ManualThermostats;
+      if (windowContactAccessory.length) {
+        windowContactAccessory.forEach((acc) => {
+          if (acc.displayName.includes(zone.name)) {
+            let serviceBattery = acc.getService(api.hap.Service.BatteryService);
+            let characteristicBattery = api.hap.Characteristic.BatteryLevel;
 
-            let state = (inManualMode || inAutoMode) !== 0;
+            if (serviceBattery && !isNaN(battery)) {
+              serviceBattery.getCharacteristic(characteristicBattery).updateValue(battery);
+            }
 
-            serviceSwitch.getCharacteristic(characteristicAuto).updateValue(inAutoMode);
+            let service = acc.getService(api.hap.Service.ContactSensor);
+            let characteristic = api.hap.Characteristic.ContactSensorState;
 
-            serviceSwitch.getCharacteristic(characteristicManual).updateValue(inManualMode);
+            let state = zoneState.openWindow || zoneState.openWindowDetected ? 1 : 0;
 
-            serviceSwitch.getCharacteristic(characteristicOff).updateValue(inOffMode);
-
-            serviceSwitch.getCharacteristic(characteristicOn).updateValue(state);
+            service.getCharacteristic(characteristic).updateValue(state);
           }
         });
       }
+
+      if (windowSwitchAccessory.length) {
+        windowSwitchAccessory[0].services.forEach((switchService) => {
+          if (switchService.subtype && switchService.subtype.includes(zone.name)) {
+            let service = windowSwitchAccessory[0].getServiceById(api.hap.Service.Switch, switchService.subtype);
+            let characteristic = api.hap.Characteristic.On;
+
+            let state = zone.openWindowEnabled ? true : false;
+
+            service.getCharacteristic(characteristic).updateValue(state);
+          }
+        });
+      }
+
+      if (zoneState.setting.type === 'HEATING') {
+        //CentralSwitch
+        if (zoneState.overlayType === null) inAutoMode += 1;
+
+        if (zoneState.overlayType !== null && zoneState.setting.power === 'OFF') inOffMode += 1;
+
+        if (zoneState.overlayType !== null && zoneState.setting.power === 'ON' && zoneState.overlay.termination)
+          inManualMode += 1;
+      }
+    }
+
+    //CentralSwitch
+    const centralSwitchAccessory = accessories.filter(
+      (acc) => acc && acc.displayName === acc.context.config.homeName + ' Central Switch'
+    );
+
+    if (centralSwitchAccessory.length) {
+      centralSwitchAccessory[0].services.forEach((service) => {
+        if (service.subtype === 'Central') {
+          let serviceSwitch = centralSwitchAccessory[0].getServiceById(api.hap.Service.Switch, service.subtype);
+          let characteristicOn = api.hap.Characteristic.On;
+          let characteristicAuto = api.hap.Characteristic.AutoThermostats;
+          let characteristicOff = api.hap.Characteristic.OfflineThermostats;
+          let characteristicManual = api.hap.Characteristic.ManualThermostats;
+
+          let state = (inManualMode || inAutoMode) !== 0;
+
+          serviceSwitch.getCharacteristic(characteristicAuto).updateValue(inAutoMode);
+
+          serviceSwitch.getCharacteristic(characteristicManual).updateValue(inManualMode);
+
+          serviceSwitch.getCharacteristic(characteristicOff).updateValue(inOffMode);
+
+          serviceSwitch.getCharacteristic(characteristicOn).updateValue(state);
+        }
+      });
     }
     return zoneStates;
   }
 
   async function updateMobileDevices() {
-    if (!settingState) {
-      Logger.debug('Polling MobileDevices...', config.homeName);
+    if (settingState) return;
 
-      const mobileDevices = await tado.getMobileDevices(config.homeId);
+    Logger.debug('Polling MobileDevices...', config.homeName);
 
-      const userAccessories = accessories.filter(
-        (user) =>
-          user &&
-          user.context.config.subtype.includes('presence') &&
-          user.displayName !== user.context.config.homeName + ' Anyone'
-      );
+    const mobileDevices = await tado.getMobileDevices(config.homeId);
 
-      const anyone = accessories.filter(
-        (user) =>
-          user &&
-          user.context.config.subtype.includes('presence') &&
-          user.displayName === user.context.config.homeName + ' Anyone'
-      );
+    const userAccessories = accessories.filter(
+      (user) =>
+        user &&
+        user.context.config.subtype.includes('presence') &&
+        user.displayName !== user.context.config.homeName + ' Anyone'
+    );
 
-      let activeUser = 0;
+    const anyone = accessories.filter(
+      (user) =>
+        user &&
+        user.context.config.subtype.includes('presence') &&
+        user.displayName === user.context.config.homeName + ' Anyone'
+    );
 
-      mobileDevices.forEach((device) => {
-        userAccessories.forEach((acc) => {
-          if (acc.context.config.homeName + ' ' + device.name === acc.displayName) {
-            let atHome = device.location && device.location.atHome ? 1 : 0;
+    let activeUser = 0;
 
-            if (atHome) activeUser += 1;
+    mobileDevices.forEach((device) => {
+      userAccessories.forEach((acc) => {
+        if (acc.context.config.homeName + ' ' + device.name === acc.displayName) {
+          let atHome = device.location && device.location.atHome ? 1 : 0;
 
-            let service =
-              acc.getService(api.hap.Service.MotionSensor) || acc.getService(api.hap.Service.OccupancySensor);
+          if (atHome) activeUser += 1;
 
-            let characteristic = service.testCharacteristic(api.hap.Characteristic.MotionDetected)
-              ? api.hap.Characteristic.MotionDetected
-              : api.hap.Characteristic.OccupancyDetected;
+          let service =
+            acc.getService(api.hap.Service.MotionSensor) || acc.getService(api.hap.Service.OccupancySensor);
 
-            service.getCharacteristic(characteristic).updateValue(atHome);
-          }
-        });
+          let characteristic = service.testCharacteristic(api.hap.Characteristic.MotionDetected)
+            ? api.hap.Characteristic.MotionDetected
+            : api.hap.Characteristic.OccupancyDetected;
+
+          service.getCharacteristic(characteristic).updateValue(atHome);
+        }
       });
+    });
 
-      if (anyone.length) {
-        let service =
-          anyone[0].getService(api.hap.Service.MotionSensor) || anyone[0].getService(api.hap.Service.OccupancySensor);
+    if (anyone.length) {
+      let service =
+        anyone[0].getService(api.hap.Service.MotionSensor) || anyone[0].getService(api.hap.Service.OccupancySensor);
 
-        let characteristic = service.testCharacteristic(api.hap.Characteristic.MotionDetected)
-          ? api.hap.Characteristic.MotionDetected
-          : api.hap.Characteristic.OccupancyDetected;
+      let characteristic = service.testCharacteristic(api.hap.Characteristic.MotionDetected)
+        ? api.hap.Characteristic.MotionDetected
+        : api.hap.Characteristic.OccupancyDetected;
 
-        service.getCharacteristic(characteristic).updateValue(activeUser ? 1 : 0);
-      }
+      service.getCharacteristic(characteristic).updateValue(activeUser ? 1 : 0);
     }
-
-    return;
   }
 
   async function updateWeather() {
-    if (!settingState) {
-      const weatherTemperatureAccessory = accessories.filter(
-        (acc) => acc && acc.displayName === acc.context.config.homeName + ' Weather'
-      );
+    if (settingState) return;
 
-      const solarIntensityAccessory = accessories.filter(
-        (acc) => acc && acc.displayName === acc.context.config.homeName + ' Solar Intensity'
-      );
+    const weatherTemperatureAccessory = accessories.filter(
+      (acc) => acc && acc.displayName === acc.context.config.homeName + ' Weather'
+    );
 
-      if (weatherTemperatureAccessory.length || solarIntensityAccessory.length) {
-        Logger.debug('Polling Weather...', config.homeName);
+    const solarIntensityAccessory = accessories.filter(
+      (acc) => acc && acc.displayName === acc.context.config.homeName + ' Solar Intensity'
+    );
 
-        const weather = await tado.getWeather(config.homeId);
+    if (weatherTemperatureAccessory.length || solarIntensityAccessory.length) {
+      Logger.debug('Polling Weather...', config.homeName);
 
-        if (weatherTemperatureAccessory.length && weather.outsideTemperature) {
-          let tempUnit = config.temperatureUnit;
-          let service = weatherTemperatureAccessory[0].getService(api.hap.Service.TemperatureSensor);
-          let characteristic = api.hap.Characteristic.CurrentTemperature;
+      const weather = await tado.getWeather(config.homeId);
 
-          let temp =
-            tempUnit === 'FAHRENHEIT' ? weather.outsideTemperature.fahrenheit : weather.outsideTemperature.celsius;
+      if (weatherTemperatureAccessory.length && weather.outsideTemperature) {
+        let tempUnit = config.temperatureUnit;
+        let service = weatherTemperatureAccessory[0].getService(api.hap.Service.TemperatureSensor);
+        let characteristic = api.hap.Characteristic.CurrentTemperature;
 
-          service.getCharacteristic(characteristic).updateValue(temp);
-        }
+        let temp =
+          tempUnit === 'FAHRENHEIT' ? weather.outsideTemperature.fahrenheit : weather.outsideTemperature.celsius;
 
-        if (solarIntensityAccessory.length && weather.solarIntensity) {
-          let state = weather.solarIntensity.percentage !== 0;
-          let brightness = weather.solarIntensity.percentage;
+        service.getCharacteristic(characteristic).updateValue(temp);
+      }
 
-          solarIntensityAccessory[0].context.lightBulbState = state;
-          solarIntensityAccessory[0].context.lightBulbBrightness = brightness;
+      if (solarIntensityAccessory.length && weather.solarIntensity) {
+        let state = weather.solarIntensity.percentage !== 0;
+        let brightness = weather.solarIntensity.percentage;
 
-          let serviceLightbulb = solarIntensityAccessory[0].getService(api.hap.Service.Lightbulb);
-          let serviceLightsensor = solarIntensityAccessory[0].getService(api.hap.Service.LightSensor);
+        solarIntensityAccessory[0].context.lightBulbState = state;
+        solarIntensityAccessory[0].context.lightBulbBrightness = brightness;
 
-          if (serviceLightbulb) {
-            let characteristicOn = api.hap.Characteristic.On;
-            let characteristicBrightness = api.hap.Characteristic.Brightness;
+        let serviceLightbulb = solarIntensityAccessory[0].getService(api.hap.Service.Lightbulb);
+        let serviceLightsensor = solarIntensityAccessory[0].getService(api.hap.Service.LightSensor);
 
-            serviceLightbulb.getCharacteristic(characteristicOn).updateValue(state);
+        if (serviceLightbulb) {
+          let characteristicOn = api.hap.Characteristic.On;
+          let characteristicBrightness = api.hap.Characteristic.Brightness;
 
-            serviceLightbulb.getCharacteristic(characteristicBrightness).updateValue(brightness);
-          } else {
-            let characteristicLux = api.hap.Characteristic.CurrentAmbientLightLevel;
+          serviceLightbulb.getCharacteristic(characteristicOn).updateValue(state);
 
-            serviceLightsensor
-              .getCharacteristic(characteristicLux)
-              .updateValue(brightness ? brightness * 1000 : 0.0001);
-          }
+          serviceLightbulb.getCharacteristic(characteristicBrightness).updateValue(brightness);
+        } else {
+          let characteristicLux = api.hap.Characteristic.CurrentAmbientLightLevel;
+
+          serviceLightsensor
+            .getCharacteristic(characteristicLux)
+            .updateValue(brightness ? brightness * 1000 : 0.0001);
         }
       }
     }
-
-    return;
   }
 
   async function updatePresence() {
-    if (!settingState) {
-      const presenceLockAccessory = accessories.filter(
-        (acc) => acc && acc.displayName === acc.context.config.homeName + ' Presence Lock'
-      );
+    if (settingState) return;
 
-      if (presenceLockAccessory.length) {
-        Logger.debug('Polling PresenceLock...', config.homeName);
+    const presenceLockAccessory = accessories.filter(
+      (acc) => acc && acc.displayName === acc.context.config.homeName + ' Presence Lock'
+    );
 
-        const presenceLock = await tado.getState(config.homeId);
+    if (presenceLockAccessory.length) {
+      Logger.debug('Polling PresenceLock...', config.homeName);
 
-        /*
-          0: Home  | true
-          1: Away  | true
-          3: Off   | false
-        */
+      const presenceLock = await tado.getState(config.homeId);
 
-        let state = presenceLock.presenceLocked ? (presenceLock.presence === 'AWAY' ? 1 : 0) : 3;
+      /*
+        0: Home  | true
+        1: Away  | true
+        3: Off   | false
+      */
 
-        let serviceSecurity = presenceLockAccessory[0].getService(api.hap.Service.SecuritySystem);
-        let serviceHomeSwitch = presenceLockAccessory[0].getServiceById(api.hap.Service.Switch, 'HomeSwitch');
-        let serviceAwaySwitch = presenceLockAccessory[0].getServiceById(api.hap.Service.Switch, 'AwaySwitch');
+      let state = presenceLock.presenceLocked ? (presenceLock.presence === 'AWAY' ? 1 : 0) : 3;
 
-        if (serviceSecurity) {
-          let characteristicCurrent = api.hap.Characteristic.SecuritySystemCurrentState;
-          let characteristicTarget = api.hap.Characteristic.SecuritySystemTargetState;
+      let serviceSecurity = presenceLockAccessory[0].getService(api.hap.Service.SecuritySystem);
+      let serviceHomeSwitch = presenceLockAccessory[0].getServiceById(api.hap.Service.Switch, 'HomeSwitch');
+      let serviceAwaySwitch = presenceLockAccessory[0].getServiceById(api.hap.Service.Switch, 'AwaySwitch');
 
-          serviceSecurity.getCharacteristic(characteristicCurrent).updateValue(state);
+      if (serviceSecurity) {
+        let characteristicCurrent = api.hap.Characteristic.SecuritySystemCurrentState;
+        let characteristicTarget = api.hap.Characteristic.SecuritySystemTargetState;
 
-          serviceSecurity.getCharacteristic(characteristicTarget).updateValue(state);
-        } else if (serviceHomeSwitch || serviceAwaySwitch) {
-          let characteristicOn = api.hap.Characteristic.On;
+        serviceSecurity.getCharacteristic(characteristicCurrent).updateValue(state);
 
-          let homeState = !state ? true : false;
+        serviceSecurity.getCharacteristic(characteristicTarget).updateValue(state);
+      } else if (serviceHomeSwitch || serviceAwaySwitch) {
+        let characteristicOn = api.hap.Characteristic.On;
 
-          let awayState = state === 1 ? true : false;
+        let homeState = !state ? true : false;
 
-          serviceAwaySwitch.getCharacteristic(characteristicOn).updateValue(awayState);
+        let awayState = state === 1 ? true : false;
 
-          serviceHomeSwitch.getCharacteristic(characteristicOn).updateValue(homeState);
-        }
+        serviceAwaySwitch.getCharacteristic(characteristicOn).updateValue(awayState);
+
+        serviceHomeSwitch.getCharacteristic(characteristicOn).updateValue(homeState);
       }
     }
   }
 
   async function updateRunningTime() {
-    if (!settingState) {
-      const centralSwitchAccessory = accessories.filter(
-        (acc) => acc && acc.displayName === acc.context.config.homeName + ' Central Switch'
-      );
+    if (settingState) return;
 
-      if (centralSwitchAccessory.length) {
-        Logger.debug('Polling RunningTime...', config.homeName);
+    const centralSwitchAccessory = accessories.filter(
+      (acc) => acc && acc.displayName === acc.context.config.homeName + ' Central Switch'
+    );
 
-        let periods = ['days', 'months', 'years'];
+    if (centralSwitchAccessory.length) {
+      Logger.debug('Polling RunningTime...', config.homeName);
 
-        for (const period of periods) {
-          let fromDate =
-            period === 'days'
-              ? moment().format('YYYY-MM-DD')
+      let periods = ['days', 'months', 'years'];
+
+      for (const period of periods) {
+        let fromDate =
+          period === 'days'
+            ? moment().format('YYYY-MM-DD')
+            : period === 'months'
+              ? moment().subtract(1, 'days').subtract(1, period).format('YYYY-MM-DD')
+              : moment().add(1, 'months').startOf('month').subtract(1, period).format('YYYY-MM-DD');
+
+        let toDate = period === 'years' ? moment().format('YYYY-MM-DD') : false;
+
+        let time = period.substring(0, period.length - 1);
+
+        const runningTime = await tado.getRunningTime(config.homeId, time, fromDate, toDate);
+
+        if (runningTime && runningTime.summary) {
+          let summaryInHours = runningTime.summary.totalRunningTimeInSeconds / 3600;
+
+          let serviceSwitch = centralSwitchAccessory[0].getServiceById(api.hap.Service.Switch, 'Central');
+          let characteristic =
+            period === 'years'
+              ? api.hap.Characteristic.OverallHeatYear
               : period === 'months'
-                ? moment().subtract(1, 'days').subtract(1, period).format('YYYY-MM-DD')
-                : moment().add(1, 'months').startOf('month').subtract(1, period).format('YYYY-MM-DD');
+                ? api.hap.Characteristic.OverallHeatMonth
+                : api.hap.Characteristic.OverallHeatDay;
 
-          let toDate = period === 'years' ? moment().format('YYYY-MM-DD') : false;
-
-          let time = period.substring(0, period.length - 1);
-
-          const runningTime = await tado.getRunningTime(config.homeId, time, fromDate, toDate);
-
-          if (runningTime && runningTime.summary) {
-            let summaryInHours = runningTime.summary.totalRunningTimeInSeconds / 3600;
-
-            let serviceSwitch = centralSwitchAccessory[0].getServiceById(api.hap.Service.Switch, 'Central');
-            let characteristic =
-              period === 'years'
-                ? api.hap.Characteristic.OverallHeatYear
-                : period === 'months'
-                  ? api.hap.Characteristic.OverallHeatMonth
-                  : api.hap.Characteristic.OverallHeatDay;
-
-            serviceSwitch.getCharacteristic(characteristic).updateValue(summaryInHours);
-          }
-
-          await timeout(500);
+          serviceSwitch.getCharacteristic(characteristic).updateValue(summaryInHours);
         }
+
+        await timeout(500);
       }
     }
-
-    return;
   }
 
   async function updateDevices() {
-    if (!settingState) {
-      Logger.debug('Polling Devices...', config.homeName);
+    if (settingState) return;
 
-      const devices = await tado.getDevices(config.homeId);
+    Logger.debug('Polling Devices...', config.homeName);
 
-      const childLockAccessories = accessories.filter(
-        (acc) => acc && acc.context.config.subtype === 'extra-childswitch'
-      );
+    const devices = await tado.getDevices(config.homeId);
 
-      devices.forEach((device) => {
-        childLockAccessories[0].services.forEach((service) => {
-          if (device.serialNo === service.subtype) {
-            let serviceChildLock = childLockAccessories[0].getServiceById(api.hap.Service.Switch, service.subtype);
-            let characteristic = api.hap.Characteristic.On;
+    const childLockAccessories = accessories.filter(
+      (acc) => acc && acc.context.config.subtype === 'extra-childswitch'
+    );
 
-            let childLockEnabled = device.childLockEnabled || false;
+    devices.forEach((device) => {
+      childLockAccessories[0].services.forEach((service) => {
+        if (device.serialNo === service.subtype) {
+          let serviceChildLock = childLockAccessories[0].getServiceById(api.hap.Service.Switch, service.subtype);
+          let characteristic = api.hap.Characteristic.On;
 
-            serviceChildLock.getCharacteristic(characteristic).updateValue(childLockEnabled);
-          }
-        });
+          let childLockEnabled = device.childLockEnabled || false;
+
+          serviceChildLock.getCharacteristic(characteristic).updateValue(childLockEnabled);
+        }
       });
-    }
-
-    return;
+    });
   }
 
   function errorHandler(err) {
