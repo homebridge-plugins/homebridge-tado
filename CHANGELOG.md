@@ -2,7 +2,8 @@
 
 ## v8.6.0 - 2025-10-30
 - BREAKING CHANGE: If you use tadoApiUrl or skipAuth, you must now define them under each corresponding home in your configuration (#176)
-- Refactored configuration: moved tadoApiUrl and skipAuth into individual home configs to support multiple API URLs (#176)
+- Refactor configuration: moved tadoApiUrl and skipAuth into individual home configs to support multiple API URLs (#176)
+- Persist tado zone states after every zone states update
 - Improved zone update logic: when setting a state, all zones are now updated immediately if the next scheduled update is more than 10 seconds away
 - Fix: Corrected zone update handling that could previously cause unintended heating changes (#178)
 

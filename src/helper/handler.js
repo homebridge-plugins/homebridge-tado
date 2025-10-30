@@ -729,7 +729,7 @@ export default (api, accessories, config, tado, telegram) => {
     }
   }
 
-  async function persistStates(homeId, zoneStates) {
+  async function persistZoneStates(homeId, zoneStates) {
     try {
       if (zoneStates && Object.keys(zoneStates).length) {
         const homeData = {};
@@ -741,6 +741,9 @@ export default (api, accessories, config, tado, telegram) => {
     } catch (error) {
       Logger.error(`Error while updating the tado states file for home ${homeId}: ${error.message || error}`);
     }
+  }
+
+  async function persistStates() {
     try {
       const data = {};
       data.counterData = await tado.getCounterData();
@@ -781,7 +784,6 @@ export default (api, accessories, config, tado, telegram) => {
 
   async function getStates() {
     lastGetStates = Date.now();
-    let zoneStates = {};
     try {
       //ME
       if (!config.homeId) await updateMe();
@@ -790,7 +792,7 @@ export default (api, accessories, config, tado, telegram) => {
       if (!config.temperatureUnit) await updateHome();
 
       //Zones
-      if (config.zones.length) zoneStates = await updateZones();
+      if (config.zones.length) await updateZones();
 
       //MobileDevices
       if (config.presence.length) await updateMobileDevices();
@@ -809,7 +811,7 @@ export default (api, accessories, config, tado, telegram) => {
     } catch (err) {
       errorHandler(err);
     } finally {
-      void persistStates(config.homeId, zoneStates);
+      void persistStates();
     }
   }
 
@@ -903,6 +905,7 @@ export default (api, accessories, config, tado, telegram) => {
     }
 
     const zoneStates = (await tado.getZoneStates(config.homeId))["zoneStates"] ?? {};
+    void persistZoneStates(config.homeId, zoneStates);
 
     for (const zone of config.zones) {
       const zoneState = zoneStates[zone.id.toString()];
