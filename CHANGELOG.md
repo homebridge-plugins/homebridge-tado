@@ -1,8 +1,8 @@
 # Changelog
 
-## v8.5.1 - 2025-10-29
-- Fix: Incorrect update of config zone properties leading to unwanted heating changes (#178)
-- Improve zone update handling when setting state
+## v8.6.0 - 2025-10-30
+- Fix: Incorrect update zones handling leading to unwanted heating changes (#178)
+- Improve zone update handling when setting state and update all zones if next scheduled update is more than 10s away
 
 ## v8.5.0 - 2025-10-27
 - Change minimum polling interval to 30s due to improvements made in v8.2.0

@@ -5,6 +5,7 @@ import { join } from "path";
 
 let settingState = false;
 let tasksInitialized = false;
+let lastGetStates = 0;
 const delayTimer = {};
 
 const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
@@ -23,6 +24,7 @@ export async function getPersistedStates(storagePath) {
 }
 
 export default (api, accessories, config, tado, telegram) => {
+  const statesIntervalTime = Math.max(config.polling, 30) * 1000;
   const storagePath = api.user.storagePath();
 
   async function setStates(accessory, accs, target, value) {
@@ -565,9 +567,11 @@ export default (api, accessories, config, tado, telegram) => {
     } catch (err) {
       errorHandler(err);
     } finally {
-      //always update zone to set correct state in Apple Home
-      if (zoneUpdated) await updateZones(accessory.context.config.zoneId);
       settingState = false;
+      //update zones to ensure correct state in Apple Home
+      const timeSinceLastGetStates = Date.now() - lastGetStates;
+      const statesIntervalTimeLeft = statesIntervalTime - timeSinceLastGetStates;
+      if (zoneUpdated && statesIntervalTimeLeft > 10_000) await updateZones();
     }
   }
 
@@ -769,13 +773,14 @@ export default (api, accessories, config, tado, telegram) => {
     tasksInitialized = true;
 
     void getStates();
-    setInterval(() => getStates(), Math.max(config.polling, 30) * 1000);
+    setInterval(() => getStates(), statesIntervalTime);
 
     void logCounter();
     setInterval(() => logCounter(), 60 * 60 * 1000);
   }
 
   async function getStates() {
+    lastGetStates = Date.now();
     let zoneStates = {};
     try {
       //ME
@@ -845,12 +850,8 @@ export default (api, accessories, config, tado, telegram) => {
     }
   }
 
-  async function updateZones(idToUpdate) {
-    let zoneStates = {};
-    if (settingState && idToUpdate === undefined) {
-      await timeout(10 * 1000);
-      if (settingState) return zoneStates;
-    }
+  async function updateZones() {
+    if (settingState) return;
 
     Logger.debug('Polling Zones...', config.homeName);
 
@@ -901,14 +902,8 @@ export default (api, accessories, config, tado, telegram) => {
       });
     }
 
-    let zonesToUpdate = [];
-    if (idToUpdate !== undefined) {
-      zoneStates[idToUpdate.toString()] = await tado.getZoneState(config.homeId, idToUpdate.toString());
-      zonesToUpdate = config.zones.find(zone => zone.id.toString() === idToUpdate.toString());
-    } else {
-      zoneStates = (await tado.getZoneStates(config.homeId))["zoneStates"];
-      zonesToUpdate = config.zones;
-    }
+    const zoneStates = (await tado.getZoneStates(config.homeId))["zoneStates"] ?? {};
+    const zonesToUpdate = config.zones;
 
     for (const zone of zonesToUpdate) {
       const zoneState = zoneStates[zone.id.toString()];
