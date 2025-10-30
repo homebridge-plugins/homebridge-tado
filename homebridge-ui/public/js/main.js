@@ -132,8 +132,6 @@ async function createCustomSchema(home) {
   customSchemaActive = homebridge.createForm(schema, {
     name: pluginConfig[0].name,
     debug: pluginConfig[0].debug,
-    tadoApiUrl: pluginConfig[0].tadoApiUrl,
-    skipAuth: pluginConfig[0].skipAuth,
     disableHistoryService: pluginConfig[0].disableHistoryService,
     homes: home
   });
@@ -142,8 +140,6 @@ async function createCustomSchema(home) {
 
     pluginConfig[0].name = config.name;
     pluginConfig[0].debug = config.debug;
-    pluginConfig[0].tadoApiUrl = config.tadoApiUrl;
-    pluginConfig[0].skipAuth = config.skipAuth;
     pluginConfig[0].disableHistoryService = config.disableHistoryService;
     pluginConfig[0].homes = pluginConfig[0].homes.map(myHome => {
       if (myHome.name === config.homes.name) {
@@ -185,6 +181,8 @@ async function resetUI() {
 function resetForm() {
 
   $('#homeUsername').val('');
+  $('#homeTadoApiUrl').val('');
+  $('#homeSkipAuth').prop('checked', false);
 
   if (fetchDevicesBar)
     fetchDevicesBar.set(0);
@@ -285,8 +283,6 @@ async function removeDeviceFromConfig(name) {
 
       if (!pluginConfig[0].homes.length) {
         delete pluginConfig[0].debug;
-        delete pluginConfig[0].tadoApiUrl;
-        delete pluginConfig[0].skipAuth;
         delete pluginConfig[0].disableHistoryService;
       }
 
@@ -313,9 +309,9 @@ async function removeDeviceFromConfig(name) {
 
 }
 
-async function fetchDevices(credentials, refresh, resync) {
+async function fetchDevices(auth, refresh, resync) {
 
-  if (!credentials && !resync)
+  if (!auth && !resync)
     return homebridge.toast.error('No credentials!', 'Error');
 
   const config = JSON.parse(JSON.stringify(pluginConfig));
@@ -337,7 +333,7 @@ async function fetchDevices(credentials, refresh, resync) {
 
     if (!resync) {
       //Init API with credentials
-      await fnAuthenticate(credentials);
+      await fnAuthenticate(auth);
 
       await TIMEOUT(2000);
 
@@ -355,7 +351,7 @@ async function fetchDevices(credentials, refresh, resync) {
         return homebridge.toast.error('Cannot refresh ' + currentHome + '. Not found in config!', 'Error');
 
       if (!home.id) {
-        homebridge.toast.info('No Home ID defined in config. Getting Home ID for ' + home.name, credentials.username);
+        homebridge.toast.info('No Home ID defined in config. Getting Home ID for ' + home.name, auth.username);
         const me = await homebridge.request('/exec', { dest: 'getMe' });
         me.homes.map(foundHome => {
           if (foundHome.name === home.name)
@@ -363,7 +359,7 @@ async function fetchDevices(credentials, refresh, resync) {
         });
         await TIMEOUT(1000);
         if (!home.id)
-          return homebridge.toast.error('Cannot get a Home ID for ' + home.name + '. ' + home.name + ' not found for this user!', credentials.username);
+          return homebridge.toast.error('Cannot get a Home ID for ' + home.name + '. ' + home.name + ' not found for this user!', auth.username);
       }
 
       await TIMEOUT(2000);
@@ -377,7 +373,9 @@ async function fetchDevices(credentials, refresh, resync) {
         if (config[0].homes[i].name === homeInfo.name) {
 
           config[0].homes[i].id = homeInfo.id;
-          config[0].homes[i].username = credentials.username;
+          config[0].homes[i].username = auth.username;
+          config[0].homes[i].tadoApiUrl = auth.tadoApiUrl;
+          config[0].homes[i].skipAuth = auth.skipAuth;
           config[0].homes[i].temperatureUnit = homeInfo.temperatureUnit || 'CELSIUS';
           config[0].homes[i].zones = config[0].homes[i].zones || [];
 
@@ -416,7 +414,7 @@ async function fetchDevices(credentials, refresh, resync) {
               }
             });
             if (!found) {
-              homebridge.toast.info(user.name + ' removed from config!', credentials.username);
+              homebridge.toast.info(user.name + ' removed from config!', auth.username);
               config[0].homes[i].presence.user.splice(index, 1);
             }
           });
@@ -464,7 +462,7 @@ async function fetchDevices(credentials, refresh, resync) {
               }
             });
             if (!found) {
-              homebridge.toast.info(zone.name + ' removed from config!', credentials.username);
+              homebridge.toast.info(zone.name + ' removed from config!', auth.username);
               config[0].homes[i].zones.splice(index, 1);
             }
           });
@@ -628,7 +626,7 @@ async function fetchDevices(credentials, refresh, resync) {
               }
             });
             if (!found) {
-              homebridge.toast.info(childLockSwitch.name + ' removed from config!', credentials.username);
+              homebridge.toast.info(childLockSwitch.name + ' removed from config!', auth.username);
               config[0].homes[i].extras.childLockSwitches.splice(index, 1);
             }
           });
@@ -675,7 +673,11 @@ async function fetchDevices(credentials, refresh, resync) {
         if (home.name && home.username) {
 
           //Init API with credentials
-          await fnAuthenticate({ username: home.username });
+          await fnAuthenticate({
+            username: home.username,
+            tadoApiUrl: home.tadoApiUrl,
+            skipAuth: home.skipAuth
+          });
 
           //resync home (refresh/remove)
           const me = await homebridge.request('/exec', { dest: 'getMe' });
@@ -684,7 +686,9 @@ async function fetchDevices(credentials, refresh, resync) {
             availableHomesInApis.push({
               id: foundHome.id,
               name: foundHome.name,
-              username: home.username
+              username: home.username,
+              tadoApiUrl: home.tadoApiUrl,
+              skipAuth: home.skipAuth
             });
           });
 
@@ -708,7 +712,11 @@ async function fetchDevices(credentials, refresh, resync) {
         if (home.name && home.username) {
 
           //Init API with credentials
-          await fnAuthenticate({ username: home.username });
+          await fnAuthenticate({
+            username: home.username,
+            tadoApiUrl: home.tadoApiUrl,
+            skipAuth: home.skipAuth
+          });
 
           let foundHome;
 
@@ -748,7 +756,11 @@ async function fetchDevices(credentials, refresh, resync) {
         if (home.name && home.username) {
 
           //Init API with credentials
-          await fnAuthenticate({ username: home.username });
+          await fnAuthenticate({
+            username: home.username,
+            tadoApiUrl: home.tadoApiUrl,
+            skipAuth: home.skipAuth
+          });
 
           let foundHome;
 
@@ -767,6 +779,8 @@ async function fetchDevices(credentials, refresh, resync) {
 
             config[0].homes[i].id = homeInfo.id;
             config[0].homes[i].username = foundHome.username;
+            config[0].homes[i].tadoApiUrl = foundHome.tadoApiUrl;
+            config[0].homes[i].skipAuth = foundHome.skipAuth;
             config[0].homes[i].temperatureUnit = homeInfo.temperatureUnit || 'CELSIUS';
             config[0].homes[i].zones = config[0].homes[i].zones || [];
 
@@ -1078,12 +1092,18 @@ async function fetchDevices(credentials, refresh, resync) {
           addedHomes += 1;
 
           //Init API with credentials
-          await fnAuthenticate({ username: foundHome.username });
+          await fnAuthenticate({
+            username: foundHome.username,
+            tadoApiUrl: foundHome.tadoApiUrl,
+            skipAuth: foundHome.skipAuth
+          });
 
           const homeConfig = {
             id: foundHome.id,
             name: foundHome.name,
             username: foundHome.username,
+            tadoApiUrl: foundHome.tadoApiUrl,
+            skipAuth: foundHome.skipAuth,
             polling: 300,
             zones: [],
             presence: {
@@ -1239,7 +1259,9 @@ async function fetchDevices(credentials, refresh, resync) {
           const homeConfig = {
             id: foundHome.id,
             name: foundHome.name,
-            username: credentials.username,
+            username: auth.username,
+            tadoApiUrl: auth.tadoApiUrl,
+            skipAuth: auth.skipAuth,
             polling: 300,
             zones: [],
             presence: {
@@ -1384,7 +1406,7 @@ async function fetchDevices(credentials, refresh, resync) {
     fetchDevicesBar.animate(1.00);
 
     if (resync)
-      homebridge.toast.info('Resynchronized!', credentials.username);
+      homebridge.toast.info('Resynchronized!', auth.username);
 
     await TIMEOUT(2000);
 
@@ -1501,13 +1523,15 @@ $('#auth').on('click', async () => {
 
   try {
 
-    let credentials = {
+    let auth = {
       username: $('#homeUsername').val(),
+      tadoApiUrl: $('#homeTadoApiUrl').val(),
+      skipAuth: $('#homeSkipAuth').prop('checked')
     };
 
     transPage($('#configureDevice'), $('#fetchDevices'));
 
-    const config = await fetchDevices(credentials, false, false);
+    const config = await fetchDevices(auth, false, false);
 
     if (config) {
       await addNewDeviceToConfig(config, false, false);
@@ -1553,7 +1577,11 @@ $('#refreshDevice').on('click', async () => {
 
     transPage($('#isConfigured'), $('#fetchDevices'));
 
-    const config = await fetchDevices({ username: home.username }, true, false);
+    const config = await fetchDevices({
+      username: home.username,
+      tadoApiUrl: home.tadoApiUrl,
+      skipAuth: home.skipAuth
+    }, true, false);
 
     if (config) {
       await addNewDeviceToConfig(config, true, false);

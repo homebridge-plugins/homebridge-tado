@@ -9,14 +9,14 @@ const tado_auth_url = "https://login.tado.com/oauth2";
 const tado_client_id = "1bb50063-6b0c-4d11-bd99-387f4a91cc46";
 
 export default class Tado {
-  constructor(name, config, storagePath, tadoApiUrl, skipAuth) {
-    this.tadoApiUrl = tadoApiUrl || tado_url;
-    this.customTadoApiUrlActive = !!tadoApiUrl;
-    this.skipAuth = skipAuth?.toString() === "true";
+  constructor(name, auth, storagePath) {
+    this.tadoApiUrl = auth.tadoApiUrl || tado_url;
+    this.customTadoApiUrlActive = !!auth.tadoApiUrl;
+    this.skipAuth = auth.skipAuth?.toString() === "true";
     this.storagePath = storagePath;
     this.name = name;
-    const usesExternalTokenFile = config.username?.toLowerCase().endsWith(".json");
-    this._tadoExternalTokenFilePath = usesExternalTokenFile ? config.username : undefined;
+    const usesExternalTokenFile = auth.username?.toLowerCase().endsWith(".json");
+    this._tadoExternalTokenFilePath = usesExternalTokenFile ? auth.username : undefined;
     const fnSimpleHash = (str) => {
       let hash = 0;
       for (let i = 0; i < str.length; i++) {
@@ -25,8 +25,8 @@ export default class Tado {
       }
       return (hash >>> 0).toString(36).padStart(7, '0');
     };
-    this.username = usesExternalTokenFile ? undefined : config.username;
-    this._tadoInternalTokenFilePath = usesExternalTokenFile ? undefined : join(this.storagePath, `.tado-token-${fnSimpleHash(config.username)}.json`);
+    this.username = usesExternalTokenFile ? undefined : auth.username;
+    this._tadoInternalTokenFilePath = usesExternalTokenFile ? undefined : join(this.storagePath, `.tado-token-${fnSimpleHash(auth.username)}.json`);
     this._tadoApiClientId = tado_client_id;
     this._tadoTokenPromise = undefined;
     this._tadoAuthenticationCallback = undefined;

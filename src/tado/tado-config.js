@@ -18,15 +18,12 @@ const deviceHandler = new Map();
 let telegram;
 
 export default {
-  add: async function (config, credentials, storagePath, tadoApiUrl, skipAuth) {
+  add: async function (config, auths, storagePath) {
     config.homes = config.homes || [];
 
-    for (const user of credentials) {
-      let username = user.username;
+    for (const auth of auths) {
 
-      const tado = new TadoApi('Configuration', {
-        username: username,
-      }, storagePath, tadoApiUrl, skipAuth);
+      const tado = new TadoApi('Configuration', auth, storagePath);
 
       const me = await tado.getMe();
 
@@ -42,7 +39,9 @@ export default {
           const homeConfig = {
             id: foundHome.id,
             name: foundHome.name,
-            username: username,
+            username: auth.username,
+            tadoApiUrl: auth.tadoApiUrl,
+            skipAuth: auth.skipAuth,
             polling: 300,
             zones: [],
             presence: {
@@ -152,14 +151,16 @@ export default {
     return config;
   },
 
-  resync: async function (config, credentials, storagePath, tadoApiUrl, skipAuth) {
+  resync: async function (config, auths, storagePath) {
     const availableHomesInApis = [];
 
-    for (const user of credentials) {
+    for (const auth of auths) {
       //Init API with credentials
       const tado = new TadoApi('Configuration', {
-        username: user.username
-      }, storagePath, tadoApiUrl, skipAuth);
+        username: auth.username,
+        tadoApiUrl: auth.tadoApiUrl,
+        skipAuth: auth.skipAuth
+      }, storagePath);
 
       const me = await tado.getMe();
 
@@ -167,7 +168,9 @@ export default {
         availableHomesInApis.push({
           id: foundHome.id,
           name: foundHome.name,
-          username: user.username
+          username: auth.username,
+          tadoApiUrl: auth.tadoApiUrl,
+          skipAuth: auth.skipAuth
         });
       });
     }
@@ -191,22 +194,21 @@ export default {
     for (let home of config.homes.entries()) {
       if (home.name && home.username) {
         config = await this.refresh(home.name, config, {
-          username: home.username
-        }, storagePath, tadoApiUrl, skipAuth);
+          username: home.username,
+          tadoApiUrl: home.tadoApiUrl,
+          skipAuth: home.skipAuth
+        }, storagePath);
       }
     }
 
-    config = await this.add(config, availableHomesInApis, storagePath, tadoApiUrl, skipAuth);
+    config = await this.add(config, availableHomesInApis, storagePath);
 
     return config;
   },
 
-  refresh: async function (currentHome, config, credentials, storagePath, tadoApiUrl, skipAuth) {
-    let username = credentials.username;
+  refresh: async function (currentHome, config, auth, storagePath) {
 
-    const tado = new TadoApi('Configuration', {
-      username: username
-    }, storagePath, tadoApiUrl, skipAuth);
+    const tado = new TadoApi('Configuration', auth, storagePath);
 
     //Home Informations
     let home = config.homes.find((home) => home && home.name === currentHome);
@@ -229,7 +231,9 @@ export default {
     for (let [i, home] of config.homes.entries()) {
       if (config.homes[i].name === homeInfo.name) {
         config.homes[i].id = homeInfo.id;
-        config.homes[i].username = credentials.username;
+        config.homes[i].username = auth.username;
+        config.homes[i].tadoApiUrl = auth.tadoApiUrl;
+        config.homes[i].skipAuth = auth.skipAuth;
         config.homes[i].temperatureUnit = homeInfo.temperatureUnit || 'CELSIUS';
         config.homes[i].zones = config.homes[i].zones || [];
 
@@ -498,13 +502,17 @@ export default {
         if (!error) {
           //Base Config
           const tado = new TadoApi(home.name, {
-            username: home.username
-          }, storagePath, config.tadoApiUrl, config.skipAuth);
+            username: home.username,
+            tadoApiUrl: home.tadoApiUrl,
+            skipAuth: home.skipAuth
+          }, storagePath);
 
           const accessoryConfig = {
             homeId: home.id,
             homeName: home.name,
             username: home.username,
+            tadoApiUrl: home.tadoApiUrl,
+            skipAuth: home.skipAuth,
             temperatureUnit: home.temperatureUnit || 'CELSIUS',
             geolocation: home.geolocation,
             tado: tado,

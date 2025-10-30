@@ -903,9 +903,8 @@ export default (api, accessories, config, tado, telegram) => {
     }
 
     const zoneStates = (await tado.getZoneStates(config.homeId))["zoneStates"] ?? {};
-    const zonesToUpdate = config.zones;
 
-    for (const zone of zonesToUpdate) {
+    for (const zone of config.zones) {
       const zoneState = zoneStates[zone.id.toString()];
       Logger.debug(`Update state of zone ${zone.id} to:`, zoneState);
 

@@ -34,6 +34,16 @@ const schema = {
           'description': 'The user name that you use for the app and the web app of Tado.',
           'required': true
         },
+        'tadoApiUrl': {
+          'title': 'Tado API URL',
+          'type': 'string',
+          'description': 'Optional: Use a custom tado api url (e.g. http://localhost:8080).'
+        },
+        'skipAuth': {
+          'title': 'Skip Authentication',
+          'type': 'boolean',
+          'description': 'Optional: Skip authentication for tado api.'
+        },
         'polling': {
           'title': 'Polling',
           'description': 'The polling interval in seconds (recommended value: 300).',
@@ -546,16 +556,6 @@ const schema = {
         }
       }
     },
-    'tadoApiUrl': {
-      'title': 'Tado API URL',
-      'type': 'string',
-      'description': 'Optional: Use a custom tado api url (e.g. http://localhost:8080).'
-    },
-    'skipAuth': {
-      'title': 'Skip Authentication',
-      'type': 'boolean',
-      'description': 'Optional: Skip authentication for tado api.'
-    },
     'disableHistoryService': {
       'title': 'Disable History Service',
       'type': 'boolean',
@@ -565,21 +565,21 @@ const schema = {
   'layout': [
     'name',
     'debug',
-    'tadoApiUrl',
-    'skipAuth',
     'disableHistoryService',
     'homes.name',
     'homes.polling',
     'homes.temperatureUnit',
     {
       'key': 'homes',
-      'title': 'Credentials',
+      'title': 'Authentication',
       'type': 'section',
       'expandable': true,
       'expanded': false,
       'orderable': false,
       'items': [
         'homes.id',
+        'homes.tadoApiUrl',
+        'homes.skipAuth',
         'homes.username'
       ]
     },

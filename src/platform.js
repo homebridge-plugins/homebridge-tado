@@ -59,45 +59,49 @@ class TadoPlatform {
   async setupPlugin(storagePath) {
     try {
       if (this.config.user && this.config.user.length) {
-        for (const credentials of this.config.user) {
+        for (const auth of this.config.user) {
           let error = false;
 
-          if (!credentials.username) {
+          if (!auth.username) {
             Logger.warn('There is no username configured for the user. This user will be skipped.');
             error = true;
-          } else if (credentials.reconfigure === false) {
+          } else if (auth.reconfigure === false) {
             error = true;
           }
 
           if (!error) {
             this.user.push({
-              username: credentials.username
+              username: auth.username,
+              tadoApiUrl: auth.tadoApiUrl,
+              skipAuth: auth.skipAuth
             });
           }
         }
       }
 
       if (this.user.length) {
-        for (const user of this.user) {
-          if (user.reconfigure || user.reconfigure === undefined) {
+        for (const auth of this.user) {
+          if (auth.reconfigure || auth.reconfigure === undefined) {
             if (this.config.homes && this.config.homes.length) {
-              let foundHome = this.config.homes.filter((home) => home && home.username === user.username);
+              let foundHome = this.config.homes.filter((home) => home && home.username === auth.username);
 
               if (foundHome.length) {
                 //refresh
                 if (foundHome[0].name && foundHome[0].username) {
                   Logger.info('Refreshing home...', foundHome[0].name);
                   this.config = await TadoConfig.refresh(foundHome[0].name, this.config, {
-                    username: foundHome[0].username
-                  }, storagePath, this.config.tadoApiUrl, this.config.skipAuth);
+                    username: foundHome[0].username,
+                    tadoApiUrl: foundHome[0].tadoApiUrl,
+                    skipAuth: foundHome[0].skipAuth
+                  }, storagePath);
                 }
               } else {
-                Logger.info('Generating new home...', user.username);
-                this.config = await TadoConfig.add(this.config, [user], storagePath, this.config.tadoApiUrl, this.config.skipAuth);
+                Logger.info('Generating new home...', auth.username);
+                this.config = await TadoConfig.add(this.config, [auth], storagePath);
               }
             } else {
-              Logger.info('Generating new home...', user.username);
-              this.config = await TadoConfig.add(this.config, [user], storagePath, this.config.tadoApiUrl, this.config.skipAuth);
+              Logger.info('Generating new home...', auth.username);
+              this.config = await TadoConfig.add(this.config, [auth], storagePath);
             }
           }
         }
@@ -114,7 +118,7 @@ class TadoPlatform {
           })
           .filter((user) => user);
 
-        await TadoConfig.store(this.config, storagePath, this.config.tadoApiUrl, this.config.skipAuth);
+        await TadoConfig.store(this.config, storagePath);
 
         Logger.info('Done!');
 
