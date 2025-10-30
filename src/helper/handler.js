@@ -903,15 +903,16 @@ export default (api, accessories, config, tado, telegram) => {
 
     let zonesToUpdate = [];
     if (idToUpdate !== undefined) {
-      zoneStates[idToUpdate] = await tado.getZoneState(config.homeId, idToUpdate);
-      zonesToUpdate = config.zones.filter(zone => zone.id === idToUpdate);
+      zoneStates[idToUpdate.toString()] = await tado.getZoneState(config.homeId, idToUpdate.toString());
+      zonesToUpdate = config.zones.find(zone => zone.id.toString() === idToUpdate.toString());
     } else {
       zoneStates = (await tado.getZoneStates(config.homeId))["zoneStates"];
       zonesToUpdate = config.zones;
     }
 
     for (const zone of zonesToUpdate) {
-      const zoneState = zoneStates[zone.id];
+      const zoneState = zoneStates[zone.id.toString()];
+      Logger.debug(`Update state of zone ${zone.id} to:`, zoneState);
 
       let currentState, targetState, currentTemp, targetTemp, humidity, active, battery, tempEqual;
 
@@ -1244,6 +1245,8 @@ export default (api, accessories, config, tado, telegram) => {
       if (windowContactAccessory.length) {
         windowContactAccessory.forEach((acc) => {
           if (acc.displayName.includes(zone.name)) {
+            Logger.debug("Update window contact sensor.");
+
             let serviceBattery = acc.getService(api.hap.Service.BatteryService);
             let characteristicBattery = api.hap.Characteristic.BatteryLevel;
 
@@ -1264,6 +1267,8 @@ export default (api, accessories, config, tado, telegram) => {
       if (windowSwitchAccessory.length) {
         windowSwitchAccessory[0].services.forEach((switchService) => {
           if (switchService.subtype && switchService.subtype.includes(zone.name)) {
+            Logger.debug("Update window switch accessory.");
+
             let service = windowSwitchAccessory[0].getServiceById(api.hap.Service.Switch, switchService.subtype);
             let characteristic = api.hap.Characteristic.On;
 
@@ -1301,12 +1306,11 @@ export default (api, accessories, config, tado, telegram) => {
 
           let state = (inManualMode || inAutoMode) !== 0;
 
+          Logger.debug(`Update central switch:`, { inAutoMode: inAutoMode, inManualMode: inManualMode, inOffMode: inOffMode, state: state });
+
           serviceSwitch.getCharacteristic(characteristicAuto).updateValue(inAutoMode);
-
           serviceSwitch.getCharacteristic(characteristicManual).updateValue(inManualMode);
-
           serviceSwitch.getCharacteristic(characteristicOff).updateValue(inOffMode);
-
           serviceSwitch.getCharacteristic(characteristicOn).updateValue(state);
         }
       });
