@@ -1,11 +1,16 @@
 # Changelog
 
-## v8.6.0 - 2025-10-30
-- BREAKING CHANGE: If you use tadoApiUrl or skipAuth, you must now define them under each corresponding home in your configuration (#176)
-- Refactor configuration: moved tadoApiUrl and skipAuth into individual home configs to support multiple API URLs (#176)
-- Persist tado zone states after every zone states update
+## v8.6.0 - 2025-10-31
+- BREAKING CHANGE: If you use tadoApiUrl or skipAuth, they must now be defined under each corresponding home in your configuration (#176)
+- Refactor configuration: Moved tadoApiUrl and skipAuth into individual home configs to support multiple API URLs (#176)
+- Persist Tado zone states after zone state updates
 - Improved zone update logic: when setting a state, all zones are now updated immediately if the next scheduled update is more than 10 seconds away
+- Advanced queue handling for update and persistence tasks
+- Tado API counter now tracks and persists for each authenticated user
+- Fix: Polling and tasks for multiple homes (#178)
 - Fix: Corrected zone update handling that could previously cause unintended heating changes (#178)
+- Added additional debug log messages for zone updates
+- Note: This update will reset your tado api counter for the current day to zero.
 
 ## v8.5.0 - 2025-10-27
 - Change minimum polling interval to 30s due to improvements made in v8.2.0

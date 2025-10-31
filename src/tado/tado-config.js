@@ -23,7 +23,7 @@ export default {
 
     for (const auth of auths) {
 
-      const tado = new TadoApi('Configuration', auth, storagePath);
+      const tado = new TadoApi('Configuration', auth, storagePath, false);
 
       const me = await tado.getMe();
 
@@ -160,7 +160,7 @@ export default {
         username: auth.username,
         tadoApiUrl: auth.tadoApiUrl,
         skipAuth: auth.skipAuth
-      }, storagePath);
+      }, storagePath, false);
 
       const me = await tado.getMe();
 
@@ -208,7 +208,7 @@ export default {
 
   refresh: async function (currentHome, config, auth, storagePath) {
 
-    const tado = new TadoApi('Configuration', auth, storagePath);
+    const tado = new TadoApi('Configuration', auth, storagePath, false);
 
     //Home Informations
     let home = config.homes.find((home) => home && home.name === currentHome);
@@ -505,7 +505,7 @@ export default {
             username: home.username,
             tadoApiUrl: home.tadoApiUrl,
             skipAuth: home.skipAuth
-          }, storagePath);
+          }, storagePath, true);
 
           const accessoryConfig = {
             homeId: home.id,

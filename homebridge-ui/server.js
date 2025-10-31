@@ -21,7 +21,7 @@ class UiServer extends HomebridgePluginUiServer {
       username: config.username,
       tadoApiUrl: config.tadoApiUrl,
       skipAuth: config.skipAuth
-    }, this.homebridgeStoragePath);
+    }, this.homebridgeStoragePath, false);
 
     return;
   }

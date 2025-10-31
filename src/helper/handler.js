@@ -1,42 +1,35 @@
 import Logger from '../helper/logger.js';
 import moment from 'moment';
-import { writeFile, access, readFile } from 'fs/promises';
+import { writeFile } from 'fs/promises';
 import { join } from "path";
 
-let settingState = false;
-let tasksInitialized = false;
-let lastGetStates = 0;
-const delayTimer = {};
-
 const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
-const aRefreshHistoryHandlers = [];
-
-export async function getPersistedStates(storagePath) {
-  try {
-    const sFilePath = join(storagePath, "tado-states.json");
-    await access(sFilePath);
-    const sData = (await readFile(sFilePath, "utf-8"));
-    if (sData) return JSON.parse(sData);
-  } catch (error) {
-    //no states data => ignore
-    Logger.debug(`Failed to read tado states file: ${error.message || error}`);
-  }
-}
+const helpers = {};
 
 export default (api, accessories, config, tado, telegram) => {
-  const statesIntervalTime = Math.max(config.polling, 30) * 1000;
-  const storagePath = api.user.storagePath();
+  //init helper variables for current home scope
+  if (!helpers[config.homeId]) {
+    helpers[config.homeId] = {
+      settingState: false,
+      tasksInitialized: false,
+      lastGetStates: 0,
+      lastPersistZoneStates: 0,
+      persistPromise: Promise.resolve(),
+      updateZonesRunning: false,
+      updateZonesNextQueued: false,
+      delayTimer: {},
+      refreshHistoryHandlers: [],
+      statesIntervalTime: Math.max(config.polling, 30) * 1000,
+      storagePath: api.user.storagePath(),
+    }
+  }
 
   async function setStates(accessory, accs, target, value) {
     let zoneUpdated = false;
-
     accessories = accs.filter((acc) => acc && acc.context.config.homeName === config.homeName);
-
     try {
-      settingState = true;
-
+      helpers[config.homeId].settingState = true;
       value = typeof value === 'number' ? parseFloat(value.toFixed(2)) : value;
-
       Logger.info(target + ': ' + value, accessory.displayName);
 
       switch (accessory.context.config.subtype) {
@@ -63,10 +56,10 @@ export default (api, accessories, config, tado, telegram) => {
             value < 5
           ) {
             if (value === 0) {
-              if (delayTimer[accessory.displayName]) {
+              if (helpers[config.homeId].delayTimer[accessory.displayName]) {
                 Logger.info('Resetting delay timer', accessory.displayName);
-                clearTimeout(delayTimer[accessory.displayName]);
-                delayTimer[accessory.displayName] = null;
+                clearTimeout(helpers[config.homeId].delayTimer[accessory.displayName]);
+                helpers[config.homeId].delayTimer[accessory.displayName] = null;
               }
 
               power = 'OFF';
@@ -111,14 +104,14 @@ export default (api, accessories, config, tado, telegram) => {
               let timer = accessory.context.delayTimer;
               let tarState = value === 1 ? 'HEAT' : 'AUTO';
 
-              if (delayTimer[accessory.displayName]) {
-                clearTimeout(delayTimer[accessory.displayName]);
-                delayTimer[accessory.displayName] = null;
+              if (helpers[config.homeId].delayTimer[accessory.displayName]) {
+                clearTimeout(helpers[config.homeId].delayTimer[accessory.displayName]);
+                helpers[config.homeId].delayTimer[accessory.displayName] = null;
               }
 
               Logger.info('Wait ' + timer + ' seconds before switching state', accessory.displayName);
 
-              delayTimer[accessory.displayName] = setTimeout(async () => {
+              helpers[config.homeId].delayTimer[accessory.displayName] = setTimeout(async () => {
                 Logger.info('Delay timer finished, switching state to ' + tarState, accessory.displayName);
 
                 //targetState
@@ -172,7 +165,7 @@ export default (api, accessories, config, tado, telegram) => {
                   );
                 }
 
-                delayTimer[accessory.displayName] = null;
+                helpers[config.homeId].delayTimer[accessory.displayName] = null;
               }, timer * 1000);
             }
           } else {
@@ -567,11 +560,11 @@ export default (api, accessories, config, tado, telegram) => {
     } catch (err) {
       errorHandler(err);
     } finally {
-      settingState = false;
+      helpers[config.homeId].settingState = false;
       //update zones to ensure correct state in Apple Home
-      const timeSinceLastGetStates = Date.now() - lastGetStates;
-      const statesIntervalTimeLeft = statesIntervalTime - timeSinceLastGetStates;
-      if (zoneUpdated && statesIntervalTimeLeft > 10_000) await updateZones();
+      const timeSinceLastGetStates = helpers[config.homeId].lastGetStates === 0 ? 0 : (Date.now() - helpers[config.homeId].lastGetStates);
+      const statesIntervalTimeLeft = helpers[config.homeId].statesIntervalTime - timeSinceLastGetStates;
+      if (zoneUpdated && statesIntervalTimeLeft > (10 * 1000)) await updateZones();
     }
   }
 
@@ -729,61 +722,49 @@ export default (api, accessories, config, tado, telegram) => {
     }
   }
 
-  async function persistZoneStates(homeId, zoneStates) {
+  function persistZoneStates(homeId, zoneStates) {
+    helpers[config.homeId].persistPromise = helpers[config.homeId].persistPromise.then(() => _persistZoneStates(homeId, zoneStates));
+  }
+
+  async function _persistZoneStates(homeId, zoneStates) {
+    if ((Date.now() - helpers[config.homeId].lastPersistZoneStates) < (10 * 1000)) return;
     try {
       if (zoneStates && Object.keys(zoneStates).length) {
         const homeData = {};
         homeData.zoneStates = zoneStates;
-        await writeFile(join(storagePath, `tado-states-${homeId}.json`), JSON.stringify(homeData, null, 2), "utf-8");
+        await writeFile(join(helpers[config.homeId].storagePath, `tado-states-${homeId}.json`), JSON.stringify(homeData, null, 2), "utf-8");
+        helpers[config.homeId].lastPersistZoneStates = Date.now();
       } else {
-        Logger.info(`Skipping persistence of tado states for home ${homeId}: zone states are empty.`);
+        Logger.warn(`Skipping persistence of tado states file for home ${homeId}: zone states are empty.`);
       }
     } catch (error) {
       Logger.error(`Error while updating the tado states file for home ${homeId}: ${error.message || error}`);
     }
   }
 
-  async function persistStates() {
-    try {
-      const data = {};
-      data.counterData = await tado.getCounterData();
-      await writeFile(join(storagePath, "tado-states.json"), JSON.stringify(data, null, 2), "utf-8");
-    } catch (error) {
-      Logger.error(`Error while updating the tado states file: ${error.message || error}`);
-    }
+  async function refreshHistoryServices() {
+    if (!helpers[config.homeId].refreshHistoryHandlers.length) return;
     try {
       //wait for fakegato history services to be loaded
       await timeout(4000);
-      for (const refreshHistory of aRefreshHistoryHandlers) {
+      for (const refreshHistory of helpers[config.homeId].refreshHistoryHandlers) {
         refreshHistory();
       }
     } catch (error) {
-      Logger.error(`Error while refreshing history: ${error.message || error}`);
-    }
-  }
-
-  async function logCounter() {
-    try {
-      const iCounter = (await tado.getCounterData()).counter;
-      Logger.info(`Tado API counter: ${iCounter.toLocaleString('en-US')}`);
-    } catch (error) {
-      Logger.warn(`Failed to get Tado API counter: ${error.message || error}`);
+      Logger.error(`Error while refreshing history services: ${error.message || error}`);
     }
   }
 
   function initTasks() {
-    if (tasksInitialized) return;
-    tasksInitialized = true;
+    if (helpers[config.homeId].tasksInitialized) return;
+    helpers[config.homeId].tasksInitialized = true;
 
     void getStates();
-    setInterval(() => getStates(), statesIntervalTime);
-
-    void logCounter();
-    setInterval(() => logCounter(), 60 * 60 * 1000);
+    setInterval(() => void getStates(), helpers[config.homeId].statesIntervalTime);
   }
 
   async function getStates() {
-    lastGetStates = Date.now();
+    helpers[config.homeId].lastGetStates = Date.now();
     try {
       //ME
       if (!config.homeId) await updateMe();
@@ -811,12 +792,12 @@ export default (api, accessories, config, tado, telegram) => {
     } catch (err) {
       errorHandler(err);
     } finally {
-      void persistStates();
+      void refreshHistoryServices();
     }
   }
 
   async function updateMe() {
-    if (settingState) return;
+    if (helpers[config.homeId].settingState) return;
 
     Logger.debug('Polling User Info...', config.homeName);
 
@@ -828,7 +809,7 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   async function updateHome() {
-    if (settingState) return;
+    if (helpers[config.homeId].settingState) return;
 
     Logger.debug('Polling Home Info...', config.homeName);
 
@@ -853,7 +834,32 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   async function updateZones() {
-    if (settingState) return;
+    if (helpers[config.homeId].updateZonesRunning) {
+      helpers[config.homeId].updateZonesNextQueued = true;
+      return;
+    }
+    helpers[config.homeId].updateZonesRunning = true;
+    try {
+      while (true) {
+        try {
+          await _updateZones();
+        } catch (error) {
+          Logger.error(`Failed to update zones: ${error.message || error}`);
+        }
+        if (helpers[config.homeId].updateZonesNextQueued) {
+          helpers[config.homeId].updateZonesNextQueued = false;
+          //continue with loop
+        } else {
+          break;
+        }
+      }
+    } finally {
+      helpers[config.homeId].updateZonesRunning = false;
+    }
+  }
+
+  async function _updateZones() {
+    if (helpers[config.homeId].settingState) return;
 
     Logger.debug('Polling Zones...', config.homeName);
 
@@ -1316,7 +1322,7 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   async function updateMobileDevices() {
-    if (settingState) return;
+    if (helpers[config.homeId].settingState) return;
 
     Logger.debug('Polling MobileDevices...', config.homeName);
 
@@ -1370,7 +1376,7 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   async function updateWeather() {
-    if (settingState) return;
+    if (helpers[config.homeId].settingState) return;
 
     const weatherTemperatureAccessory = accessories.filter(
       (acc) => acc && acc.displayName === acc.context.config.homeName + ' Weather'
@@ -1425,7 +1431,7 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   async function updatePresence() {
-    if (settingState) return;
+    if (helpers[config.homeId].settingState) return;
 
     const presenceLockAccessory = accessories.filter(
       (acc) => acc && acc.displayName === acc.context.config.homeName + ' Presence Lock'
@@ -1470,7 +1476,7 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   async function updateRunningTime() {
-    if (settingState) return;
+    if (helpers[config.homeId].settingState) return;
 
     const centralSwitchAccessory = accessories.filter(
       (acc) => acc && acc.displayName === acc.context.config.homeName + ' Central Switch'
@@ -1515,7 +1521,7 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   async function updateDevices() {
-    if (settingState) return;
+    if (helpers[config.homeId].settingState) return;
 
     Logger.debug('Polling Devices...', config.homeName);
 
@@ -1586,6 +1592,6 @@ export default (api, accessories, config, tado, telegram) => {
     getStates: getStates,
     setStates: setStates,
     changedStates: changedStates,
-    refreshHistoryHandlers: aRefreshHistoryHandlers
+    refreshHistoryHandlers: helpers[config.homeId].refreshHistoryHandlers
   };
 };

@@ -1,5 +1,4 @@
 import Logger from '../helper/logger.js';
-import { getPersistedStates } from '../helper/handler.js';
 import got from 'got';
 import { join } from 'path';
 import { access, readFile, writeFile } from 'fs/promises';
@@ -8,8 +7,17 @@ const tado_url = "https://my.tado.com";
 const tado_auth_url = "https://login.tado.com/oauth2";
 const tado_client_id = "1bb50063-6b0c-4d11-bd99-387f4a91cc46";
 
+function _getSimpleHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+  }
+  return (hash >>> 0).toString(36).padStart(7, '0');
+}
+
 export default class Tado {
-  constructor(name, auth, storagePath) {
+  constructor(name, auth, storagePath, counterActivated) {
     this.tadoApiUrl = auth.tadoApiUrl || tado_url;
     this.customTadoApiUrlActive = !!auth.tadoApiUrl;
     this.skipAuth = auth.skipAuth?.toString() === "true";
@@ -17,28 +25,42 @@ export default class Tado {
     this.name = name;
     const usesExternalTokenFile = auth.username?.toLowerCase().endsWith(".json");
     this._tadoExternalTokenFilePath = usesExternalTokenFile ? auth.username : undefined;
-    const fnSimpleHash = (str) => {
-      let hash = 0;
-      for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = (hash << 5) - hash + char;
-      }
-      return (hash >>> 0).toString(36).padStart(7, '0');
-    };
+    this.hashedUsername = _getSimpleHash(auth.username);
     this.username = usesExternalTokenFile ? undefined : auth.username;
-    this._tadoInternalTokenFilePath = usesExternalTokenFile ? undefined : join(this.storagePath, `.tado-token-${fnSimpleHash(auth.username)}.json`);
+    this._tadoInternalTokenFilePath = usesExternalTokenFile ? undefined : join(this.storagePath, `.tado-token-${this.hashedUsername}.json`);
     this._tadoApiClientId = tado_client_id;
     this._tadoTokenPromise = undefined;
     this._tadoAuthenticationCallback = undefined;
+    this._counterActivated = counterActivated?.toString() === "true";
     this._counterInitPromise = this._initCounter();
     Logger.debug("API successfull initialized", this.name);
   }
 
   async _initCounter() {
-    const persistedCounterData = (await getPersistedStates(this.storagePath))?.counterData;
+    if (!this._counterActivated) return;
+    const persistedCounterData = (await this._getPersistedCounter())?.counterData;
     this._counter = persistedCounterData?.counter ?? 0;
     this._counterTimestamp = persistedCounterData?.counterTimestamp ?? new Date().toISOString();
     this._checkCounterMidnightReset();
+    //wait some seconds to catch recent api calls
+    setTimeout(() => {
+      void this._logCounter();
+      setInterval(() => void this._logCounter(), 60 * 60 * 1000);
+      void this._persistCounterData();
+      setInterval(() => void this._persistCounterData(), 5 * 60 * 1000);
+    }, 4 * 1000);
+  }
+
+  async _getPersistedCounter() {
+    try {
+      const filePath = join(this.storagePath, `tado-api-${this.hashedUsername}.json`);
+      await access(filePath);
+      const data = (await readFile(filePath, "utf-8"));
+      if (data) return JSON.parse(data);
+    } catch (error) {
+      //no persisted counter data => ignore
+      Logger.debug(`Failed to read tado api file for user ${this.hashedUsername}: ${error.message || error}`);
+    }
   }
 
   _checkCounterMidnightReset() {
@@ -53,6 +75,7 @@ export default class Tado {
   }
 
   async _increaseCounter() {
+    if (!this._counterActivated) return;
     try {
       await this._counterInitPromise;
       this._checkCounterMidnightReset();
@@ -63,12 +86,31 @@ export default class Tado {
     }
   }
 
-  async getCounterData() {
+  async _getCounterData() {
     await this._counterInitPromise;
     return {
       counter: this._counter,
       counterTimestamp: this._counterTimestamp
     };
+  }
+
+  async _persistCounterData() {
+    try {
+      const data = {};
+      data.counterData = await this._getCounterData();
+      await writeFile(join(this.storagePath, `tado-api-${this.hashedUsername}.json`), JSON.stringify(data, null, 2), "utf-8");
+    } catch (error) {
+      Logger.error(`Error while updating the tado api file for user ${this.hashedUsername}: ${error.message || error}`);
+    }
+  }
+
+  async _logCounter() {
+    try {
+      const counter = (await this._getCounterData()).counter;
+      Logger.info(`Tado API counter: ${counter.toLocaleString('en-US')}`);
+    } catch (error) {
+      Logger.warn(`Failed to get Tado API counter: ${error.message || error}`);
+    }
   }
 
   async getToken() {
