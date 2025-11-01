@@ -1,17 +1,16 @@
 # Changelog
 
-## v8.6.0 - 2025-10-31
-- BREAKING CHANGE: If you use tadoApiUrl or skipAuth, they must now be defined under each corresponding home in your configuration (#176)
-- Refactor configuration: Moved tadoApiUrl and skipAuth into individual home configs to support multiple API URLs (#176)
-- Persist Tado zone states after zone state updates
-- Improved zone update logic: when setting a state, all zones are now updated immediately if the next scheduled update is more than 10 seconds away
-- Advanced queue handling for update and persistence tasks
-- Prevent updates during active setStates
-- Tado API counter now tracks and persists for each authenticated user
-- Fix: Polling and tasks for multiple homes (#178)
-- Fix: Corrected zone update handling that could previously cause unintended heating changes (#178)
-- Added additional debug log messages for zone updates
-- Note: This update will reset your tado api counter for the current day to zero.
+## v8.6.0 — 2025-11-01
+- BREAKING CHANGE: `tadoApiUrl` and `skipAuth` must now be defined under each home configuration for proper multi-home support (#176)
+- New parameter `preferSiriTemperature` for improved Siri handling — allows temperature changes via Siri without forcing Auto mode (#178). See [#178 (comment)](https://github.com/homebridge-plugins/homebridge-tado/issues/178#issuecomment-3476646430) for a detailed explanation
+- Restored stable update behavior from v8.3.1 and earlier while keeping Siri compatibility (#178)
+- Reworked thermostat update logic: batches state and temperature updates within 400 ms for more reliable state updates (#178)
+- Improved zone update and persistence handling for faster, more consistent status updates
+- Optimized task queue to prevent overlapping operations and API calls
+- Fixed multi-home polling and individual API handling (#176)
+- Added enhanced debug logs for zone updates and API interactions
+- Note: This update resets the Tado API counter for the current day
+- Apologies for the unexpected behavior introduced in 8.4.x–8.5.x — this release restores consistent and reliable behavior, with an optional fix for Siri users. Full statement: [#178 (comment)](https://github.com/homebridge-plugins/homebridge-tado/issues/178#issuecomment-3476646430)
 
 ## v8.5.0 - 2025-10-27
 - Change minimum polling interval to 30s due to improvements made in v8.2.0

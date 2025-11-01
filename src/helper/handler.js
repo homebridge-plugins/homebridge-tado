@@ -564,7 +564,6 @@ export default (api, accessories, config, tado, telegram) => {
           break;
       }
     } catch (err) {
-      console.log("error at setStates", err);
       errorHandler(err);
     } finally {
       delete helpers[config.homeId].activeSettingStateRuns[runId];
