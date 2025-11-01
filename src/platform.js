@@ -237,12 +237,12 @@ class TadoPlatform {
 
     switch (device.subtype) {
       case 'zone-thermostat':
-        new ThermostatAccessory(this.api, accessory, this.accessories, tado, deviceHandler, FakeGatoHistoryService);
+        new ThermostatAccessory(this.api, accessory, this.accessories, tado, deviceHandler, this.config.preferSiriTemperature, FakeGatoHistoryService);
         break;
       case 'zone-heatercooler':
       case 'zone-heatercooler-boiler':
       case 'zone-heatercooler-ac':
-        new HeaterCoolerAccessory(this.api, accessory, this.accessories, tado, deviceHandler, FakeGatoHistoryService);
+        new HeaterCoolerAccessory(this.api, accessory, this.accessories, tado, deviceHandler, this.config.preferSiriTemperature, FakeGatoHistoryService);
         break;
       case 'zone-switch':
       case 'zone-window-switch':

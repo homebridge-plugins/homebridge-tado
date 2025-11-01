@@ -1,10 +1,11 @@
 import Logger from '../helper/logger.js';
 import moment from 'moment';
+import { TadoUpdateBuffer } from '../helper/update-buffer.js'
 
 const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
 
 export default class HeaterCoolerAccessory {
-  constructor(api, accessory, accessories, tado, deviceHandler, FakeGatoHistoryService) {
+  constructor(api, accessory, accessories, tado, deviceHandler, preferSiriTemperature, FakeGatoHistoryService) {
     this.api = api;
     this.accessory = accessory;
     this.accessories = accessories;
@@ -14,6 +15,10 @@ export default class HeaterCoolerAccessory {
     this.tado = tado;
 
     this.autoDelayTimeout = null;
+
+    this.updateBuffer = new TadoUpdateBuffer((target, value) => {
+      return this.deviceHandler.setStates(this.accessory, this.accessories, target, value);
+    }, preferSiriTemperature);
 
     this.getService();
   }
@@ -258,16 +263,7 @@ export default class HeaterCoolerAccessory {
 
     service
       .getCharacteristic(this.api.hap.Characteristic.Active)
-      .onSet((value) => {
-        if (this.waitForEndValue) {
-          clearTimeout(this.waitForEndValue);
-          this.waitForEndValue = null;
-        }
-
-        this.waitForEndValue = setTimeout(() => {
-          this.deviceHandler.setStates(this.accessory, this.accessories, 'State', value);
-        }, 500);
-      })
+      .onSet(value => this.updateBuffer.setState(value))
       .on(
         'change',
         this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
@@ -282,16 +278,7 @@ export default class HeaterCoolerAccessory {
 
     service
       .getCharacteristic(this.api.hap.Characteristic.HeatingThresholdTemperature)
-      .onSet((value) => {
-        if (this.waitForEndValue) {
-          clearTimeout(this.waitForEndValue);
-          this.waitForEndValue = null;
-        }
-
-        this.waitForEndValue = setTimeout(() => {
-          this.deviceHandler.setStates(this.accessory, this.accessories, 'Temperature', value);
-        }, 250);
-      })
+      .onSet(value => this.updateBuffer.setTemperature(value))
       .on(
         'change',
         this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
@@ -301,16 +288,7 @@ export default class HeaterCoolerAccessory {
     if (this.accessory.context.config.type === 'AIR_CONDITIONING') {
       service
         .getCharacteristic(this.api.hap.Characteristic.CoolingThresholdTemperature)
-        .onSet((value) => {
-          if (this.waitForEndValue) {
-            clearTimeout(this.waitForEndValue);
-            this.waitForEndValue = null;
-          }
-
-          this.waitForEndValue = setTimeout(() => {
-            this.deviceHandler.setStates(this.accessory, this.accessories, 'Temperature', value);
-          }, 250);
-        })
+        .onSet(value => this.updateBuffer.setTemperature(value))
         .on(
           'change',
           this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)

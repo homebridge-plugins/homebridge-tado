@@ -560,12 +560,18 @@ const schema = {
       'title': 'Disable History Service',
       'type': 'boolean',
       'description': 'Optional: Skip creation of history service.'
+    },
+    'preferSiriTemperature': {
+      'title': 'Prefer Siri temperature changes',
+      'type': 'boolean',
+      'description': 'Prefers temperature changes when the Auto (state=3) mode is sent simultaneously. Default: false.'
     }
   },
   'layout': [
     'name',
     'debug',
     'disableHistoryService',
+    'preferSiriTemperature',
     'homes.name',
     'homes.polling',
     'homes.temperatureUnit',

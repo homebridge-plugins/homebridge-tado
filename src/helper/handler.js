@@ -558,6 +558,7 @@ export default (api, accessories, config, tado, telegram) => {
           break;
       }
     } catch (err) {
+      console.log("error at setStates", err);
       errorHandler(err);
     } finally {
       helpers[config.homeId].settingState = false;

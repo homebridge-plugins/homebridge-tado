@@ -1,11 +1,12 @@
 import Logger from '../helper/logger.js';
 import moment from 'moment';
 import fs from 'fs-extra';
+import { TadoUpdateBuffer } from '../helper/update-buffer.js'
 
 const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
 
 export default class ThermostatAccessory {
-  constructor(api, accessory, accessories, tado, deviceHandler, FakeGatoHistoryService) {
+  constructor(api, accessory, accessories, tado, deviceHandler, preferSiriTemperature, FakeGatoHistoryService) {
     this.api = api;
     this.accessory = accessory;
     this.accessories = accessories;
@@ -15,6 +16,10 @@ export default class ThermostatAccessory {
     this.tado = tado;
 
     this.autoDelayTimeout = null;
+
+    this.updateBuffer = new TadoUpdateBuffer((target, value) => {
+      return this.deviceHandler.setStates(this.accessory, this.accessories, target, value);
+    }, preferSiriTemperature);
 
     this.getService();
   }
@@ -192,20 +197,8 @@ export default class ThermostatAccessory {
       .getCharacteristic(this.api.hap.Characteristic.TemperatureDisplayUnits)
       .onSet(this.changeUnit.bind(this, service));
 
-    service.getCharacteristic(this.api.hap.Characteristic.TargetHeatingCoolingState).onSet((value) => {
-      if (this.waitForEndValue) {
-        clearTimeout(this.waitForEndValue);
-        this.waitForEndValue = null;
-      }
-
-      this.waitForEndValue = setTimeout(() => {
-        if (this.settingTemperature) {
-          this.settingTemperature = false;
-          return;
-        }
-        this.deviceHandler.setStates(this.accessory, this.accessories, 'State', value);
-      }, 500);
-    });
+    service.getCharacteristic(this.api.hap.Characteristic.TargetHeatingCoolingState)
+      .onSet(value => this.updateBuffer.setState(value));
 
     service
       .getCharacteristic(this.api.hap.Characteristic.CurrentTemperature)
@@ -216,12 +209,7 @@ export default class ThermostatAccessory {
 
     service
       .getCharacteristic(this.api.hap.Characteristic.TargetTemperature)
-      .onSet((value) => {
-        this.settingTemperature = true;
-        const targetState = service.getCharacteristic(this.api.hap.Characteristic.TargetHeatingCoolingState).value;
-        if (targetState) this.deviceHandler.setStates(this.accessory, this.accessories, 'Temperature', value);
-        setTimeout(() => this.settingTemperature = false, 1000);
-      })
+      .onSet(value => this.updateBuffer.setTemperature(value))
       .on(
         'change',
         this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)

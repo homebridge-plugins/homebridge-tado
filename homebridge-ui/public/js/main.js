@@ -133,6 +133,7 @@ async function createCustomSchema(home) {
     name: pluginConfig[0].name,
     debug: pluginConfig[0].debug,
     disableHistoryService: pluginConfig[0].disableHistoryService,
+    preferSiriTemperature: pluginConfig[0].preferSiriTemperature,
     homes: home
   });
 
@@ -141,6 +142,7 @@ async function createCustomSchema(home) {
     pluginConfig[0].name = config.name;
     pluginConfig[0].debug = config.debug;
     pluginConfig[0].disableHistoryService = config.disableHistoryService;
+    pluginConfig[0].preferSiriTemperature = config.preferSiriTemperature;
     pluginConfig[0].homes = pluginConfig[0].homes.map(myHome => {
       if (myHome.name === config.homes.name) {
         myHome = config.homes;
@@ -284,6 +286,7 @@ async function removeDeviceFromConfig(name) {
       if (!pluginConfig[0].homes.length) {
         delete pluginConfig[0].debug;
         delete pluginConfig[0].disableHistoryService;
+        delete pluginConfig[0].preferSiriTemperature;
       }
 
       await homebridge.updatePluginConfig(pluginConfig);
