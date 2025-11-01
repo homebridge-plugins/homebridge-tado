@@ -1,5 +1,8 @@
 # Changelog
 
+## v8.6.1 — 2025-11-01
+- Fix: Improve error logging for failed API requests (#179)
+
 ## v8.6.0 — 2025-11-01
 - BREAKING CHANGE: `tadoApiUrl` and `skipAuth` must now be defined under each home configuration for proper multi-home support (#176)
 - New parameter `preferSiriTemperature` for improved Siri handling — allows temperature changes via Siri without forcing Auto mode (#178). See [#178 (comment)](https://github.com/homebridge-plugins/homebridge-tado/issues/178#issuecomment-3476646430) for a detailed explanation
@@ -10,7 +13,7 @@
 - Fixed multi-home polling and individual API handling (#176)
 - Added enhanced debug logs for zone updates and API interactions
 - Note: This update resets the Tado API counter for the current day
-- Apologies for the unexpected behavior introduced in 8.4.x–8.5.x — this release restores consistent and reliable behavior, with an optional fix for Siri users. Full statement: [#178 (comment)](https://github.com/homebridge-plugins/homebridge-tado/issues/178#issuecomment-3476646430)
+- Apologies for the unexpected behavior introduced in v8.4.x–8.5.x — this release restores consistent and reliable behavior, with an optional fix for Siri users. Full statement: [#178 (comment)](https://github.com/homebridge-plugins/homebridge-tado/issues/178#issuecomment-3476646430)
 
 ## v8.5.0 - 2025-10-27
 - Change minimum polling interval to 30s due to improvements made in v8.2.0
@@ -41,8 +44,8 @@
 - Fix config UI not working on HOOBS 5 (#177)
 
 ## v8.1.0 - 2025-10-19
-- Add option to use a custom tado api url (#176)
-- Add option to skip authentication for tado api (#176)
+- Add option to use a custom tado API url (#176)
+- Add option to skip authentication for tado API (#176)
 - Update dependencies
 
 ## v8.0.2 - 2025-07-22
@@ -87,7 +90,7 @@
 - Updated changelog
 
 ## v7.4.0 - 2025-03-14
-- Implemented the new authentication workflow for the tado° REST API based on their [official instructions](https://support.tado.com/en/articles/8565472-how-do-i-authenticate-to-access-the-rest-api)
+- Implemented the new authentication workflow for the tado° REST API based on their [official instructions](https://support.tado.com/en/articles/8565472-how-do-i-authenticate-to-access-the-rest-API)
 - Added full support for Homebridge v2.0 (it is also shown as compatible when using Homebridge v1.X)
 - Updated all dependencies to their latest version
 - Added new authentication workflow to config-ui

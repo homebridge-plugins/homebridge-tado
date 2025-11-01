@@ -300,12 +300,6 @@ export default class Tado {
       return response.body;
     } catch (error) {
       Logger.error(`API Request [${method} ${path}] - FAILED: ${error.message}`, this.name);
-      if (error.response) {
-        Logger.error(`HTTP Status: ${error.response.statusCode} - Response: ${JSON.stringify(error.response.body)}`, this.name);
-      }
-      if (error.request) {
-        Logger.error(`Request failed - Config: ${JSON.stringify(config)}`, this.name);
-      }
       throw error;
     }
   }

@@ -563,8 +563,8 @@ export default (api, accessories, config, tado, telegram) => {
           );
           break;
       }
-    } catch (err) {
-      errorHandler(err);
+    } catch (error) {
+      Logger.error(`Failed to set states: ${error.message || error}`);
     } finally {
       delete helpers[config.homeId].activeSettingStateRuns[runId];
       //update zones to ensure correct state in Apple Home
@@ -795,8 +795,8 @@ export default (api, accessories, config, tado, telegram) => {
 
       //Child Lock
       if (config.childLock.length) await updateDevices();
-    } catch (err) {
-      errorHandler(err);
+    } catch (error) {
+      Logger.error(`Failed to get states: ${error.message || error}`);
     } finally {
       void refreshHistoryServices();
     }
@@ -1552,48 +1552,6 @@ export default (api, accessories, config, tado, telegram) => {
         }
       });
     });
-  }
-
-  function errorHandler(err) {
-    let error;
-
-    if (err.options)
-      Logger.debug(
-        'API request ' + err.options.method + ' ' + err.options.url.pathname + ' <error> ' + err.message,
-        config.homeName
-      );
-
-    if (err.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
-      if (err.response.data) {
-        error = {
-          status: err.response.status,
-          message: err.response.statusText,
-          data: err.response.data,
-        };
-      } else {
-        error = {
-          status: err.response.status,
-          message: err.response.statusText,
-        };
-      }
-    } else if (err.request) {
-      error = {
-        code: err.code,
-        message: 'Cannot reach Tado. No response received.',
-      };
-    } else if (err.output && err.output.payload && Object.keys(err.output.payload).length) {
-      //simple-oauth2 boom error
-      error = err.output.payload;
-    } else {
-      // Something happened in setting up the request that triggered an Error
-      error = err;
-    }
-
-    Logger.error("Error:", error, config.homeName);
-
-    return;
   }
 
   return {
