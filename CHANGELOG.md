@@ -6,6 +6,7 @@
 - Persist Tado zone states after zone state updates
 - Improved zone update logic: when setting a state, all zones are now updated immediately if the next scheduled update is more than 10 seconds away
 - Advanced queue handling for update and persistence tasks
+- Prevent updates during active setStates
 - Tado API counter now tracks and persists for each authenticated user
 - Fix: Polling and tasks for multiple homes (#178)
 - Fix: Corrected zone update handling that could previously cause unintended heating changes (#178)

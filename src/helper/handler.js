@@ -2,6 +2,7 @@ import Logger from '../helper/logger.js';
 import moment from 'moment';
 import { writeFile } from 'fs/promises';
 import { join } from "path";
+import { randomUUID } from 'crypto';
 
 const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
 const helpers = {};
@@ -10,7 +11,7 @@ export default (api, accessories, config, tado, telegram) => {
   //init helper variables for current home scope
   if (!helpers[config.homeId]) {
     helpers[config.homeId] = {
-      settingState: false,
+      activeSettingStateRuns: {},
       tasksInitialized: false,
       lastGetStates: 0,
       lastPersistZoneStates: 0,
@@ -24,11 +25,16 @@ export default (api, accessories, config, tado, telegram) => {
     }
   }
 
+  function settingStates() {
+    return Object.keys(helpers[config.homeId].activeSettingStateRuns).length > 0;
+  }
+
   async function setStates(accessory, accs, target, value) {
     let zoneUpdated = false;
     accessories = accs.filter((acc) => acc && acc.context.config.homeName === config.homeName);
+    const runId = randomUUID();
     try {
-      helpers[config.homeId].settingState = true;
+      helpers[config.homeId].activeSettingStateRuns[runId] = true;
       value = typeof value === 'number' ? parseFloat(value.toFixed(2)) : value;
       Logger.info(target + ': ' + value, accessory.displayName);
 
@@ -561,11 +567,11 @@ export default (api, accessories, config, tado, telegram) => {
       console.log("error at setStates", err);
       errorHandler(err);
     } finally {
-      helpers[config.homeId].settingState = false;
+      delete helpers[config.homeId].activeSettingStateRuns[runId];
       //update zones to ensure correct state in Apple Home
       const timeSinceLastGetStates = helpers[config.homeId].lastGetStates === 0 ? 0 : (Date.now() - helpers[config.homeId].lastGetStates);
       const statesIntervalTimeLeft = helpers[config.homeId].statesIntervalTime - timeSinceLastGetStates;
-      if (zoneUpdated && statesIntervalTimeLeft > (10 * 1000)) await updateZones();
+      if (!settingStates() && zoneUpdated && statesIntervalTimeLeft > (10 * 1000)) await updateZones();
     }
   }
 
@@ -798,7 +804,7 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   async function updateMe() {
-    if (helpers[config.homeId].settingState) return;
+    if (settingStates()) return;
 
     Logger.debug('Polling User Info...', config.homeName);
 
@@ -810,7 +816,7 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   async function updateHome() {
-    if (helpers[config.homeId].settingState) return;
+    if (settingStates()) return;
 
     Logger.debug('Polling Home Info...', config.homeName);
 
@@ -860,7 +866,7 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   async function _updateZones() {
-    if (helpers[config.homeId].settingState) return;
+    if (settingStates()) return;
 
     Logger.debug('Polling Zones...', config.homeName);
 
@@ -1326,7 +1332,7 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   async function updateMobileDevices() {
-    if (helpers[config.homeId].settingState) return;
+    if (settingStates()) return;
 
     Logger.debug('Polling MobileDevices...', config.homeName);
 
@@ -1380,7 +1386,7 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   async function updateWeather() {
-    if (helpers[config.homeId].settingState) return;
+    if (settingStates()) return;
 
     const weatherTemperatureAccessory = accessories.filter(
       (acc) => acc && acc.displayName === acc.context.config.homeName + ' Weather'
@@ -1435,7 +1441,7 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   async function updatePresence() {
-    if (helpers[config.homeId].settingState) return;
+    if (settingStates()) return;
 
     const presenceLockAccessory = accessories.filter(
       (acc) => acc && acc.displayName === acc.context.config.homeName + ' Presence Lock'
@@ -1480,7 +1486,7 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   async function updateRunningTime() {
-    if (helpers[config.homeId].settingState) return;
+    if (settingStates()) return;
 
     const centralSwitchAccessory = accessories.filter(
       (acc) => acc && acc.displayName === acc.context.config.homeName + ' Central Switch'
@@ -1525,7 +1531,7 @@ export default (api, accessories, config, tado, telegram) => {
   }
 
   async function updateDevices() {
-    if (helpers[config.homeId].settingState) return;
+    if (settingStates()) return;
 
     Logger.debug('Polling Devices...', config.homeName);
 
