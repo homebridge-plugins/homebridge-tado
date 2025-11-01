@@ -910,8 +910,11 @@ export default (api, accessories, config, tado, telegram) => {
       });
     }
 
-    const zoneStates = (await tado.getZoneStates(config.homeId))["zoneStates"] ?? {};
-    void persistZoneStates(config.homeId, zoneStates);
+    let zoneStates = {};
+    if (config.zones?.length) {
+      zoneStates = (await tado.getZoneStates(config.homeId))["zoneStates"] ?? {};
+      void persistZoneStates(config.homeId, zoneStates);
+    }
 
     for (const zone of config.zones) {
       const zoneState = zoneStates[zone.id.toString()];
