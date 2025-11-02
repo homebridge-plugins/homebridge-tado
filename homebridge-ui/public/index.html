@@ -83,16 +83,16 @@
       <i class="fa fa-arrow-left" aria-hidden="true"></i>
     </button>
     <img src="images/tado_logo.png" alt="Tado meets Homebridge" width="150px" class="center-it mt-4 tadoLogo">
-    <h6 class="text-center">To start the process, we need some data from the home you want to add in homebridge. <br>
-      Please fill out all marked fields.</h6>
+    <h6 class="text-center">To start the process, we need to authenticate with the Tado account of the home you want to
+      add to Homebridge.<br>Please fill out all marked fields:</h6>
     <div class="container mt-5">
       <div class="form-group">
-        <label for="homeUsername">Username <span class="text-danger">*</span> </label>
-        <input type="text" class="form-control" id="homeUsername">
-        <label for="homeTadoApiUrl">Tado API URL (optional) </label>
+        <label for="homeUsername">Username<span class="text-danger">*</span></label>
+        <input type="text" class="form-control" id="homeUsername" placeholder="your-tado@mail.com">
+        <label for="homeTadoApiUrl">Tado API URL (optional)</label>
         <input type="text" class="form-control" id="homeTadoApiUrl">
-        <label for="homeSkipAuth">Skip Authentication (optional) </label>
-        <input type="checkbox" class="form-control" id="homeSkipAuth">
+        <label for="homeSkipAuth">Skip Authentication (optional)</label>
+        <input type="checkbox" class="form-checkbox" id="homeSkipAuth">
       </div>
       <button id="auth" type="submit" class="btn btn-primary float-right mt-3 mr-0">Next</button>
     </div>
@@ -101,7 +101,8 @@
   <!-- fetchDevices -->
   <div id="fetchDevices" style="display:none;">
     <img src="images/tado_logo.png" alt="Tado meets Homebridge" width="150px" class="center-it mt-2 tadoLogo">
-    <h6 class="text-center">Devices are searched. <br> Please be patient for a moment.</h6>
+    <h6 class="text-center">Devices are being searched.<br>Please follow the instructions below and be patient for a
+      moment.</h6>
     <h6 class="text-center" id="authenticationInstructions" style="display:none;font-weight:bold;"></h6>
     <div id="fetchDevicesBar" class="mt-5"></div>
   </div>

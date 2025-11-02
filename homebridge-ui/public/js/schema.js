@@ -562,9 +562,9 @@ const schema = {
       'description': 'Optional: Skip creation of history service.'
     },
     'preferSiriTemperature': {
-      'title': 'Prefer Siri temperature changes',
+      'title': 'Prefer Siri Temperature Changes',
       'type': 'boolean',
-      'description': 'Prefers temperature changes when the Auto (state=3) mode is sent simultaneously. Default: false.'
+      'description': 'Prefer temperature changes when the state auto is sent simultaneously with a temperature change. Default: false.'
     }
   },
   'layout': [

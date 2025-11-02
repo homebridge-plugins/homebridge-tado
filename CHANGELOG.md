@@ -1,5 +1,8 @@
 # Changelog
 
+## v8.6.2 — 2025-11-02
+- Fix: Config-UI: Show skip auth field as checkbox and improve instruction texts
+
 ## v8.6.1 — 2025-11-01
 - Fix: Improve error logging for failed API requests (#179)
 
