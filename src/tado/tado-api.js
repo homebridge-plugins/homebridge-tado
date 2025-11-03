@@ -546,7 +546,11 @@ export default class Tado {
         ...(config.termination.type === 'TIMER' && config.termination.durationInSeconds !== undefined
           ? { durationInSeconds: config.termination.durationInSeconds }
           : {}),
-        ...(config.termination.typeSkillBasedApp ? { typeSkillBasedApp: config.termination.typeSkillBasedApp } : {}),
+        ...(
+          config.termination.typeSkillBasedApp ?
+            { typeSkillBasedApp: config.termination.typeSkillBasedApp } :
+            { typeSkillBasedApp: 'MANUAL' }
+        ),
       },
     };
 

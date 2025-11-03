@@ -12,33 +12,17 @@
 
 ## Info
 
-This plugin has originally been created by [Seydx](https://github.com/seydx/). Donate to him: [![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=flat-square&maxAge=2592000)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=NP4T3KASWQLD8)
-
+This plugin has originally been created by [Seydx](https://github.com/seydx/). Donate to him: [![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=flat-square&maxAge=2592000)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=NP4T3KASWQLD8). It is currently maintained by [smart7324](https://buymeacoffee.com/smart7324).
 
 **Homebridge Tado** is possibly the biggest homebridge plugin for Tado devices. 
 
-
-**Multiple home support**
+**Multiple home Support**
 
 The plugin even offers support for multiple houses. So it is finally possible to create multiple houses and control them together.
 
+**Full Apple Home Support**
 
-**Full HomeKit Support**
-
-Everything Tado offers can be displayed through the plugin in Apple HomeKit. The thermostat buttons themselves have custom characteristics. Full hot water support, weather temperature, solar intensity, weather, tado quick actions, child lock, presence lock and much more awaits you with this plugin! 
-
-
-**History**
-
-Every temperature sensor, humidity sensor, contact sensor, motion sensor and thermostats are also able to show the history in Elgato EVE app. 
-
-
-**Push Notification**
-
-In addition, you can even get push notifications via Telegram when a user arrives or is absent, or when "Open Window" is triggered.
-
-
-You can do that and much more with the new version 6. Have Fun!
+Everything Tado offers can be displayed through the plugin in Apple Home. The thermostat buttons themselves have custom characteristics. Full hot water support, weather temperature, solar intensity, weather, tado quick actions, child lock, presence lock, Air Conditioning and much more awaits you with this plugin!
 
 ## Installation
 
@@ -49,14 +33,19 @@ After [Homebridge](https://github.com/nfarina/homebridge) has been installed:
 ## Documentation
 
 - [Example config.json](https://github.com/homebridge-plugins/homebridge-tado/blob/latest/example-config.json)
+- [Config UI](#config-ui)
 - [Non Config Ui X User?](#non-config-ui-x-user)
 - [Configuration](#configuration)
+  - [Authentication](#authentication)
+    - [Custom API Configuration](#custom-api-configuration)
   - [Thermostat](#thermostat)
-    -  [Open Window](#open-window)
+    - [Open Window](#open-window)
   - [Air Conditioning](#air-conditioning)
   - [Hot Water](#hot-water)
   - [Presence](#presence)
   - [Weather](#weather)
+  - [Special Settings](#special-settings)
+    - [Prefer Siri Temperature](#prefer-siri-temperature)
   - [Extras](#extras)
     - [Central Switch](#central-switch)
       - [Boost Switch](#boost-switch)
@@ -65,16 +54,17 @@ After [Homebridge](https://github.com/nfarina/homebridge) has been installed:
       - [Dummy Switch](#dummy-switch)
     - [Presence Lock](#presence-lock)
     - [Child Lock](#child-lock)
+  - [History Service](#history-service)
   - [Telegram](#telegram)
 - [Supported Clients](#supported-clients)
 - [Contributing](#contributing)
 - [Troubleshooting](#troubleshooting)
 
-## Custom UI
+## Config UI
 
-Unlike other plugins, this plugin allows you to manually enable/disable each zone, thermostat, user and everything you see in HomeKit via config.json.
+Unlike other plugins, this plugin allows you to manually enable/disable each zone, thermostat, user and everything you see in Apple Home via config.json.
 
-The config.json offers a lot of configuration options. And if, as recommended, you use Config UI X, the plugin will be all the better.
+The `config.json` offers a lot of configuration options. And if, as recommended, you use Config UI X, the plugin will be all the better.
 
 It supports the full potential of Config UI X and makes configuring the plugin much easier. With it, you can create a "home" in no time and control everything through Config UI X. From logging in to creating config.json works fully automatically with Config UI X!
 
@@ -82,7 +72,7 @@ It supports the full potential of Config UI X and makes configuring the plugin m
 
 _(In the section below you can find more information about the functions.)_
  
-## Non Config Ui X User?:
+## Non Config Ui X User?
 
 The plugin can also work without config ui x or a custom ui. If you want the config.json auto-fill feature, you have to put the following part in your config.json. This will generate a ready to use config.json with all options disabled except thermostats. After the first start, thhis user will get ``"reconfigure": false``. If you want to refresh a home, just enable ``"reconfigure"`` for the user and restart homebridge. If you want to add an another home, add the user credentials (username) to the array. The Plugin can handle multiple accounts. 
 
@@ -112,13 +102,30 @@ If you on HOOBS, you need to reboot the HOOBS server to get your first start con
   ]
 }
 ```
-See [Example Config](https://github.com/homebridge-plugins/homebridge-tado/edit/latest/example-config.json) for more details
+See [Example Config](https://github.com/homebridge-plugins/homebridge-tado/blob/latest/example-config.json) for more details
 
 ## Configuration
 
+## Authentication
+
+This plugin implements the Tado-supported authentication using the [Device Code Grant Flow](https://support.tado.com/en/articles/8565472-how-do-i-authenticate-to-access-the-rest-api).
+
+During the initial setup, the plugin will prompt you to open a specific URL in your web browser. You will then be asked to log in with your Tado account and grant access to the new device. Once this process has been completed successfully, the plugin automatically handles all subsequent authentication tasks, including secure token storage, token refresh, and renewal. This ensures continuous access to the Tado API v2 without further user interaction.
+
+### Custom API Configuration
+
+For advanced use cases, the plugin allows overriding the default Tado API endpoint by specifying a custom API URL through the `tadoApiUrl` parameter within each home configuration.
+
+Additionally, it is possible to disable the built-in authentication flow entirely by setting the `skipAuth` parameter to `true`. When enabled, all API requests will be sent without an authentication token.
+
+**Important:** Use `skipAuth` only if you are certain that your setup does not require token-based authentication. Improper use may result in limited or failed communication with the Tado API.
+
+For further details and configuration examples, refer to the related discussion:  
+[homebridge-tado issue #176 – Authentication Options](https://github.com/homebridge-plugins/homebridge-tado/issues/176#issuecomment-3419839118)
+
 ## Thermostat
 
-Each zone in the config.json with ``"type": "HEATING"`` and ``"easyMode": false`` is exposed to HomeKit as a thermostat accessory with the following features:
+Each zone in the config.json with ``"type": "HEATING"`` and ``"easyMode": false`` is exposed to Apple Home as a thermostat accessory with the following features:
 
 - Current Mode: OFF | COOLING | HEATING | AUTO
 - Target Mode: OFF | HEATING | AUTO
@@ -137,7 +144,7 @@ The Delay Switch (characteristic) can be used for eg. if you have an automation 
 **Mode / Mode Timer**
 ``mode`` for the commands to be sent with. can be 'MANUAL' for manual control until ended by the user, 'AUTO' for manual control until next schedule change in tado° app OR 'TIMER' for manual control until timer ends. ``modeTimer`` for the ``MANUAL`` mode in minutes.
 
-Each zone in the config.json with ``type: HEATING`` and ``easyMode: true`` is exposed to HomeKit as a HeaterCooler accessory with the features as above and some minor changes:
+Each zone in the config.json with ``type: HEATING`` and ``easyMode: true`` is exposed to Apple Home as a HeaterCooler accessory with the features as above and some minor changes:
 
 - Active: ON | OFF
 - Target Mode: HEATING
@@ -183,7 +190,7 @@ You can also adjust the minimum temperature step ``"minStep"``, minimum temperat
 
 #### Open Window:
 
-Each zone with ``"type": "HEATING"`` also has the possibility to display "OpenWindow" contact sensors or switches in HomeKit with the following features:
+Each zone with ``"type": "HEATING"`` also has the possibility to display "OpenWindow" contact sensors or switches in Apple Home with the following features:
 
 - Switch to enable disable open window for the zone or trigger the open window state of the zone
 - Contact sensor to show the open window state
@@ -210,7 +217,7 @@ Each zone with ``"type": "HEATING"`` also has the possibility to display "OpenWi
 
 ## Air Conditioning
 
-Each zone in the config.json with `"type": "AIR_CONDITIONING"` is exposed to HomeKit as a HeaterCooler accessory with the following features:
+Each zone in the config.json with `"type": "AIR_CONDITIONING"` is exposed to Apple Home as a HeaterCooler accessory with the following features:
 
 - Current Mode: OFF | IDLE | HEATING | COOLING
 - Target Mode: OFF | HEATING | COOLING | AUTO
@@ -224,7 +231,7 @@ Each zone in the config.json with `"type": "AIR_CONDITIONING"` is exposed to Hom
 - Elgato EVE history feature (FakeGato)
 
 **AC-Specific Features**
-Air conditioning zones support both heating and cooling modes with dedicated cooling threshold temperature control. Fan speed and swing controls are handled through the Tado app, while HomeKit integration focuses on temperature and mode control for optimal compatibility. Note that the RotationSpeed characteristic is not supported for AC units.
+Air conditioning zones support both heating and cooling modes with dedicated cooling threshold temperature control. Fan speed and swing controls are handled through the Tado app, while Apple Home integration focuses on temperature and mode control for optimal compatibility. Note that the RotationSpeed characteristic is not supported for AC units.
 
 **Mode / Mode Timer**
 `mode` for the commands to be sent with. can be 'MANUAL' for manual control until ended by the user, 'AUTO' for manual control until next schedule change in tado° app OR 'TIMER' for manual control until timer ends. `modeTimer` for the `MANUAL` mode in minutes.
@@ -260,11 +267,11 @@ You can also adjust the minimum temperature step `"minStep"`, minimum temperatur
 
 ## Hot Water
 
-Each zone in the config.json with ``"type": HOT_WATER`` and ``"boilerTempSupport": false`` is exposed to HomeKit as a switch (``"accTypeBoiler: "SWITCH"``) or faucet (``"accTypeBoiler: "FAUCET"``) accessory with the following features:
+Each zone in the config.json with ``"type": HOT_WATER`` and ``"boilerTempSupport": false`` is exposed to Apple Home as a switch (``"accTypeBoiler: "SWITCH"``) or faucet (``"accTypeBoiler: "FAUCET"``) accessory with the following features:
 
 - Active: ON | OFF
 
-Each zone in the config.json with ``type: HOT_WATER`` and ``boilerTempSupport: true`` is exposed to HomeKit as a HeaterCooler accessory with the following features:
+Each zone in the config.json with ``type: HOT_WATER`` and ``boilerTempSupport: true`` is exposed to Apple Home as a HeaterCooler accessory with the following features:
 
 - Current Mode: OFF | ON
 - Target Mode: OFF | ON
@@ -305,7 +312,7 @@ You can also adjust the minimum temperature step ``"minStep"``, minimum temperat
 
 ## Presence
 
-Each user or anyone sensor in the config.json is exposed to HomeKit as a occupancy (``"accType: "OCCUPANCY"``) or motion (``"accType: "MOTION"``) accessory. 
+Each user or anyone sensor in the config.json is exposed to Apple Home as a occupancy (``"accType: "OCCUPANCY"``) or motion (``"accType: "MOTION"``) accessory. 
 
 ```
 "homes": [
@@ -335,7 +342,7 @@ Each user or anyone sensor in the config.json is exposed to HomeKit as a occupan
 
 ## Weather
 
-Weather settings allow you to display a sensor for temperature, a light bulb (```"accTypeSolarIntensity": "LIGHTBULB"```)  or light sensor (```"accTypeSolarIntensity": "SENSOR"```) for sun intensity in HomeKit.
+Weather settings allow you to display a sensor for temperature, a light bulb (```"accTypeSolarIntensity": "LIGHTBULB"```)  or light sensor (```"accTypeSolarIntensity": "SENSOR"```) for sun intensity in Apple Home.
 
 ```
 "homes": [
@@ -371,10 +378,41 @@ Weather settings allow you to display a sensor for temperature, a light bulb (``
 ]
 ```
 
+## Special Settings
+
+### Prefer Siri Temperature
+
+The `preferSiriTemperature` parameter controls how the plugin interprets combined **state + temperature** updates received from Apple Home. It was introduced in version **v8.6.0** to address inconsistent behavior between **Siri commands** and **Apple Home scenes**.
+
+**Background**
+
+Apple Home and Siri both send temperature and state changes simultaneously — especially if a thermostat is currently turned off.
+Prior to this improvement, the plugin always switched thermostats to **AUTO** mode when a state update to AUTO and a temperature update was received simultaneously, which occasionally led to conflicts and unexpected behaviour. With `preferSiriTemperature`, users can fine-tune how these combined updates are handled, allowing a more predictable and user-friendly experience depending on whether they primarily use **Siri voice control** or **Apple Home scenes**.
+
+**Configuration**
+
+To enable this behavior, add the parameter to your configuration:
+
+```json
+"preferSiriTemperature": true
+```
+
+This option changes how combined state + temperature updates are interpreted:
+
+| Situation | Apple Home sends | Default behavior | With `preferSiriTemperature: true` |
+|------------|----------------|------------------|------------------------------------|
+| Siri: “Set to 7 °C” (while off) | `AUTO + 7 °C` | Switches to Auto | Only sets temperature to 7 °C |
+| Scene: “Auto 21 °C” | `AUTO + 21 °C` | Switches to Auto | Only sets temperature to 21 °C |
+| Scene: “Auto 5 °C” | `AUTO + 5 °C` | Switches to Auto | Switches to Auto *(fallback)* |
+
+- By default, the plugin behaves as it did prior to v8.4.0, maintaining full compatibility with existing automations and Apple Home scenes.
+- If you frequently control your thermostats via Siri, enabling `preferSiriTemperature` may provide a smoother and more natural experience.
+- If your setup relies heavily on scenes or automations, leaving this option disabled is recommended to preserve predictable mode transitions.
+
 ## Extras
 
 ### Central Switch
-Shows a switch accessory with additional switches in HomeKit which mimics the "Boost" and "Turnoff" switch from Tado. It also shows the Heater Running information as a custom characteristic for the month (in hours) and it shows also how many thermostats are in auto, manual or off mode. Its also possible to show a dummy switch withiun the central switch for eg. automation purposes.
+Shows a switch accessory with additional switches in Apple Home which mimics the "Boost" and "Turnoff" switch from Tado. It also shows the Heater Running information as a custom characteristic for the month (in hours) and it shows also how many thermostats are in auto, manual or off mode. Its also possible to show a dummy switch withiun the central switch for eg. automation purposes.
 
 ```
 "homes": [
@@ -394,7 +432,7 @@ Shows a switch accessory with additional switches in HomeKit which mimics the "B
 ```
 
 #### Boost Switch
-Shows a switch accessory in HomeKit (added to central switch) which mimics the "Boost" switch from Tado and switches all heaters to max temperature. 
+Shows a switch accessory in Apple Home (added to central switch) which mimics the "Boost" switch from Tado and switches all heaters to max temperature. 
 _Note: Central Switch needs to be truned on._
 
 ```
@@ -415,7 +453,7 @@ _Note: Central Switch needs to be truned on._
 ```
 
 #### Shedule Switch
-Shows a switch accessory in HomeKit (added to central switch) which mimics the "Shedule" switch from Tado and switches all heaters to their default shedule
+Shows a switch accessory in Apple Home (added to central switch) which mimics the "Shedule" switch from Tado and switches all heaters to their default shedule
 _Note: Central Switch needs to be truned on._
 
 ```
@@ -436,7 +474,7 @@ _Note: Central Switch needs to be truned on._
 ```
 
 #### Turnoff Switch
-Shows a switch accessory in HomeKit (added to central switch) which mimics the "Turn Off" switch from Tado and switches all heaters off
+Shows a switch accessory in Apple Home (added to central switch) which mimics the "Turn Off" switch from Tado and switches all heaters off
 _Note: Central Switch needs to be truned on._
 
 ```
@@ -458,7 +496,7 @@ _Note: Central Switch needs to be truned on._
 
 
 #### Dummy Switch
-Shows a dummy switch accessory in HomeKit (added to central switch) without any functions. Can be used for eg automation purposes.
+Shows a dummy switch accessory in Apple Home (added to central switch) without any functions. Can be used for eg automation purposes.
 _Note: Central Switch needs to be truned on._
 
 ```
@@ -479,7 +517,7 @@ _Note: Central Switch needs to be truned on._
 ```
 
 ### Presence Lock
-Shows a switch with to sub switchs within the main accessory (``"accTypePresenceLock": "SWITCH"``) or security (``"accTypePresenceLock": "ALARM"``) accessory in HomeKit with following features: HOME | AWAY | DISABLED
+Shows a switch with to sub switchs within the main accessory (``"accTypePresenceLock": "SWITCH"``) or security (``"accTypePresenceLock": "ALARM"``) accessory in Apple Home with following features: HOME | AWAY | DISABLED
 
 ```
 "homes": [
@@ -499,7 +537,7 @@ Shows a switch with to sub switchs within the main accessory (``"accTypePresence
 ```
 
 ### Child Lock
-Each device with ``"type": "HEATING"`` and child lock support can be exposed to HomeKit as a "sub" switch to the main switch accessory which can show you if child lock is enabled or you can also enable/disable child lock.
+Each device with ``"type": "HEATING"`` and child lock support can be exposed to Apple Home as a "sub" switch to the main switch accessory which can show you if child lock is enabled or you can also enable/disable child lock.
 
 ```
 "homes": [
@@ -527,6 +565,23 @@ Each device with ``"type": "HEATING"`` and child lock support can be exposed to 
   ...
 ]
 ```
+
+## History Service
+
+Every temperature sensor, humidity sensor, contact sensor, motion sensor, and thermostat provides a **history service** compatible with the **Elgato EVE** app. This allows you to view historical data directly within the EVE interface.
+
+During each polling cycle, all history-enabled accessories are updated with the latest sensor values.  
+These updates are persisted to the local **file storage**, ensuring that the history remains accurate and consistent even across restarts.
+
+**disableHistoryService**
+
+For users who do not require historical tracking, the history feature can be completely disabled by setting the following parameter:
+
+```json
+"disableHistoryService": true
+```
+
+When this option is enabled, no history entries will be recorded or stored, reducing file I/O and memory usage.
 
 ## Telegram
 
@@ -570,11 +625,11 @@ To better customize the messages, special characters can be set so that the plug
 
 ## Supported clients
 
-This plugin has been verified to work with the following apps on iOS 14:
+This plugin has been verified to work with the latest versions of:
 
-* Apple Home
-* All 3rd party apps like Elgato Eve etc.
-* Homebridge >= v1.1.6
+* Apple Home (Apple HomeKit)
+* 3rd party apps like Elgato Eve
+* Homebridge
 
 ## Contributing
 
@@ -590,7 +645,6 @@ Pull requests are accepted.
 ## Troubleshooting
 
 If you have any issues with the plugin, you can enable the debug mode, which will provide some additional information. This might be useful for debugging issues. Open your config.json and set ``"debug": true``
-
 
 ## Disclaimer
 

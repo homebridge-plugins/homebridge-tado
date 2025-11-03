@@ -1,5 +1,13 @@
 # Changelog
 
+## v8.7.0 — 2025-11-03
+- Update documentation and add new config parameters with explanations (#176, #182)
+- Update `example-config.json` (#182)
+- Update got
+- Fix: Config validation failed as minStep is typeof number (#181)
+- Fix: Config-UI: Add zone type AIR_CONDITIONING (#170, #173)
+- Fix: Always include typeSkillBasedApp when setting AC Zone Overlay to prevent API error (#170, #173)
+
 ## v8.6.2 — 2025-11-02
 - Fix: Config-UI: Show skip auth field as checkbox and improve instruction texts
 
@@ -167,16 +175,12 @@
 
 Hot water devices show 0° when they are first started in HomeKit if they are in "OFF" mode. The reason for this is that in "OFF" mode there is no temperature value in the API. When you turn on the device, the plugin saves the value for the further use case.
 
-
 **IMPORTANT:**
 
 If you previously used your "HOT_WATER" device/zone as a faucet, then disable the zone after the update and restart Homebridge pls. After the restart, you can enable the zone with the faucet again.
 
-
 ## v6.0.0 - 2021-03-14
-
-
-**<u>NOTE:</u>** Updating from **<= v5.x** to **v6.x** will crash your homebridge, please **REMOVE** the old version first and check also the new [example-config.json](https://github.com/SeydX/homebridge-tado-platform/blob/master/example-config.json) 
+**<u>NOTE:</u>** Updating from **<= v5.x** to **v6.x** will crash your homebridge, please **REMOVE** the old version first and check also the new [example-config.json](https://github.com/homebridge-plugins/homebridge-tado/blob/latest/example-config.json) 
 
 - Config UI X support (config.schema.json)
 - Custom UI
@@ -232,26 +236,22 @@ If you previously used your "HOT_WATER" device/zone as a faucet, then disable th
 - Bugfixes
 - Cleanup code
 
-
 ## v5.1.4 - 2019-04-25
 - Bugfixes
-
 
 ## v5.1.2 - 2019-04-22
 - [NEW] Added Valve (Faucet Type) for Hotwater without temp adjustment possibility
 - Bugfixes
 - Code Cleanup
 
-
 ## v5.0.5 - 2019-04-22
 - Code cleanup
 - Bugfixes
-
 
 ## v5.0.3 - 2019-04-17
 - Bugfixes
 - Added new parameter into config.json (overrideMode) to set up the mode after temperature changement (manual or auto)
 - Cleanup code
 
-## v5.0.0 - 
+## v5.0.0
 - Initial release

@@ -11,7 +11,9 @@
                     "id": 123456,
                     "name": "My Home",
                     "username": "mail@example.com",
-                    "polling": 60,
+                    "tadoApiUrl": "",
+                    "skipAuth": false,
+                    "polling": 300,
                     "temperatureUnit": "CELSIUS",
                     "geolocation": {
                         "longitude": "10.1234567",
@@ -81,7 +83,7 @@
                             "modeTimer": 30,
                             "minValue": 5,
                             "maxValue": 25,
-                            "minStep": 1,
+                            "minStep": 0.5,
                             "easyMode": false,
                             "noBattery": false
                         },
@@ -169,7 +171,9 @@
                         }
                     }
                 }
-            ]
+            ],
+            "disableHistoryService": false,
+            "preferSiriTemperature": false
         }
     ]
 }

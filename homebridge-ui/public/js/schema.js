@@ -364,8 +364,8 @@ const schema = {
               },
               'minStep': {
                 'title': 'Temperature Step',
-                'type': 'string',
-                'description': 'Minimum step for temperature adjustment. (Default: 1, must be between 0 - 1)'
+                'type': 'number',
+                'description': 'Minimum step for temperature adjustment. (Default: 0.5, must be between 0 - 1)'
               },
               'minValue': {
                 'title': 'Minimum Temperature',
@@ -449,6 +449,12 @@ const schema = {
                     'title': 'Hot Water',
                     'enum': [
                       'HOT_WATER'
+                    ]
+                  },
+                  {
+                    'title': 'Air Conditioning',
+                    'enum': [
+                      'AIR_CONDITIONING'
                     ]
                   }
                 ],
