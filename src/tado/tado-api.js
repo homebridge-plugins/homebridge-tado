@@ -256,30 +256,15 @@ export default class Tado {
 
   async apiCall(path, method = 'GET', data = {}, params = {}, tado_url_dif) {
     const access_token = this.skipAuth ? undefined : await this.getToken();
+    const url = `${tado_url_dif || this.tadoApiUrl}${path}`;
 
-    let tadoLink = tado_url_dif || this.tadoApiUrl;
-
-    Logger.debug('Using ' + tadoLink, this.name);
-
-    Logger.debug(
-      'API request ' +
-      method +
-      ' ' +
-      path +
-      ' ' +
-      (data && Object.keys(data).length ? JSON.stringify(data) + ' <pending>' : '<pending>'),
-      this.name
-    );
-
-    let config = {
-      method: method,
+    const config = {
+      method,
       responseType: 'json',
-      headers: access_token ? {
-        Authorization: 'Bearer ' + access_token,
-      } : undefined,
-      timeout: {
-        request: 30000
-      },
+      headers: access_token ?
+        { Authorization: `Bearer ${access_token}` } :
+        undefined,
+      timeout: { request: 30000 },
       retry: {
         limit: 2,
         statusCodes: [408, 429, 503, 504],
@@ -294,12 +279,34 @@ export default class Tado {
 
     if (Object.keys(params).length) config.searchParams = params;
 
+    Logger.debug('API request start', {
+      name: this.name,
+      method,
+      url,
+      params: Object.keys(params).length ? params : undefined,
+      data: Object.keys(data).length ? data : undefined,
+    });
+
     try {
-      const response = await got(tadoLink + path, config);
+      const response = await got(url, config);
       await this._increaseCounter();
+      Logger.debug('API request success', {
+        name: this.name,
+        method,
+        url,
+        statusCode: response.statusCode,
+        body: response.body ?? 'empty response',
+      });
       return response.body;
     } catch (error) {
-      Logger.error(`API Request [${method} ${path}] - FAILED: ${error.message}`, this.name);
+      Logger.error('API request failed', {
+        name: this.name,
+        method,
+        url,
+        message: error.message,
+        statusCode: error.response?.statusCode,
+        body: error.response?.body,
+      });
       throw error;
     }
   }

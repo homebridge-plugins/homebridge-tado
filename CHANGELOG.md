@@ -1,5 +1,8 @@
 # Changelog
 
+## v8.7.1 - 2025-11-04
+- Add debug logs for API responses (#179)
+
 ## v8.7.0 — 2025-11-03
 - Update documentation and add new config parameters with explanations (#176, #182)
 - Update `example-config.json` (#182)
