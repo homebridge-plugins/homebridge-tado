@@ -1,8 +1,8 @@
 # Changelog
 
 ## v8.7.2 - 2025-11-08
-- Add notice about Tado X compatibility to documentation (#179)
-- Use consistent spelling for Tado and Apple Home across the entire plugin
+- Add notice about tado X compatibility to documentation (#179)
+- Use consistent spelling for tado and Apple Home across the entire plugin
 
 ## v8.7.1 - 2025-11-04
 - Add debug logs for API responses (#179)
