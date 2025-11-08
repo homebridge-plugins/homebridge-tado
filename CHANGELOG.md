@@ -1,5 +1,9 @@
 # Changelog
 
+## v8.7.2 - 2025-11-08
+- Add notice about Tado X compatibility to documentation (#179)
+- Use consistent spelling for Tado and Apple Home across the entire plugin
+
 ## v8.7.1 - 2025-11-04
 - Add debug logs for API responses (#179)
 
@@ -26,7 +30,7 @@
 - Optimized task queue to prevent overlapping operations and API calls
 - Fixed multi-home polling and individual API handling (#176)
 - Added enhanced debug logs for zone updates and API interactions
-- Note: This update resets the Tado API counter for the current day
+- Note: This update resets the tado API counter for the current day
 - Apologies for the unexpected behavior introduced in v8.4.x–8.5.x — this release restores consistent and reliable behavior, with an optional fix for Siri users. Full statement: [#178 (comment)](https://github.com/homebridge-plugins/homebridge-tado/issues/178#issuecomment-3476646430)
 
 ## v8.5.0 - 2025-10-27
@@ -67,14 +71,14 @@
 - Update form-data due to vulnerability
 
 ## v8.0.1 - 2025-06-12
-- Tado-API: Verify that refresh token is not empty before saving to file
+- tado-API: Verify that refresh token is not empty before saving to file
 
 ## v8.0.0 - 2025-06-09
 - Add support for tado AC devices
 
 ## v7.6.0 - 2025-04-24
 - Fixed crash on telegram event (#164)
-- Rewrote Tado-Platform as ES6 class
+- Rewrote tado-Platform as ES6 class
 - Updated dependencies
 
 ## v7.5.3 - 2025-03-27
@@ -108,7 +112,7 @@
 - Added full support for Homebridge v2.0 (it is also shown as compatible when using Homebridge v1.X)
 - Updated all dependencies to their latest version
 - Added new authentication workflow to config-ui
-- Fixed an issue that caused HomeKit from pairing with the bridge (Error: Accessory out of compliance)
+- Fixed an issue that caused Apple Home from pairing with the bridge (Error: Accessory out of compliance)
 - Fixed an issue where the plugin crashed after startup due to a type error after upgrading got
 - Removed AirQuality feature [homebridge-tado-platform/issues/152#issuecomment-2708942491](https://github.com/seydx/homebridge-tado-platform/issues/152#issuecomment-2708942491)
 - Fixed an issue where the current temperature has been set to the target temperature after changing the target temperature through Apple Home
@@ -176,7 +180,7 @@
 
 **Note:**
 
-Hot water devices show 0° when they are first started in HomeKit if they are in "OFF" mode. The reason for this is that in "OFF" mode there is no temperature value in the API. When you turn on the device, the plugin saves the value for the further use case.
+Hot water devices show 0° when they are first started in Apple Home if they are in "OFF" mode. The reason for this is that in "OFF" mode there is no temperature value in the API. When you turn on the device, the plugin saves the value for the further use case.
 
 **IMPORTANT:**
 
@@ -194,7 +198,7 @@ If you previously used your "HOT_WATER" device/zone as a faucet, then disable th
 - Refactored code
 - Multiple tado accounts
   - Possibility to control multiple homes
-- Customizable temperature unit via HomeKit
+- Customizable temperature unit via Apple Home
 - Customizable Modes (AUTO | HEAT | COOL | OFF) or (ON | OFF)
 - Deactivatable battery indicator (support for old gen thermostats)
 - Customizable zone termination, separate for each zone

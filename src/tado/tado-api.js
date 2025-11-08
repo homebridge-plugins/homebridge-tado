@@ -42,7 +42,7 @@ export default class Tado {
     this._counter = persistedCounterData?.counter ?? 0;
     this._counterTimestamp = persistedCounterData?.counterTimestamp ?? new Date().toISOString();
     this._checkCounterMidnightReset();
-    //wait some seconds to catch recent api calls
+    //wait some seconds to catch recent API calls
     setTimeout(() => {
       void this._logCounter();
       setInterval(() => void this._logCounter(), 60 * 60 * 1000);
@@ -59,7 +59,7 @@ export default class Tado {
       if (data) return JSON.parse(data);
     } catch (error) {
       //no persisted counter data => ignore
-      Logger.debug(`Failed to read tado api file for user ${this.hashedUsername}: ${error.message || error}`);
+      Logger.debug(`Failed to read tado API file for user ${this.hashedUsername}: ${error.message || error}`);
     }
   }
 
@@ -82,7 +82,7 @@ export default class Tado {
       this._counter++;
       this._counterTimestamp = new Date().toISOString();
     } catch (error) {
-      Logger.warn(`Failed to increase tado api counter: ${error.message || error}`);
+      Logger.warn(`Failed to increase tado API counter: ${error.message || error}`);
     }
   }
 
@@ -100,16 +100,16 @@ export default class Tado {
       data.counterData = await this._getCounterData();
       await writeFile(join(this.storagePath, `tado-api-${this.hashedUsername}.json`), JSON.stringify(data, null, 2), "utf-8");
     } catch (error) {
-      Logger.error(`Error while updating the tado api file for user ${this.hashedUsername}: ${error.message || error}`);
+      Logger.error(`Error while updating the tado API file for user ${this.hashedUsername}: ${error.message || error}`);
     }
   }
 
   async _logCounter() {
     try {
       const counter = (await this._getCounterData()).counter;
-      Logger.info(`Tado API counter: ${counter.toLocaleString('en-US')}`);
+      Logger.info(`tado API counter: ${counter.toLocaleString('en-US')}`);
     } catch (error) {
-      Logger.warn(`Failed to get Tado API counter: ${error.message || error}`);
+      Logger.warn(`Failed to get tado API counter: ${error.message || error}`);
     }
   }
 

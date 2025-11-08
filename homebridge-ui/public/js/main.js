@@ -705,7 +705,7 @@ async function fetchDevices(auth, refresh, resync) {
 
       await TIMEOUT(2000);
 
-      homebridge.toast.info('Search for homes in the config to remove that were not found in the api...', 'Info');
+      homebridge.toast.info('Search for homes in the config to remove that were not found in the API...', 'Info');
 
       let removedHomes = 0;
 
@@ -1072,13 +1072,13 @@ async function fetchDevices(auth, refresh, resync) {
 
       }
 
-      homebridge.toast.info('Looking for homes which are found in the api but are not configured...', 'Info');
+      homebridge.toast.info('Looking for homes which are found in the API but are not configured...', 'Info');
 
       await TIMEOUT(2000);
 
       let addedHomes = 0;
 
-      //add new homes from api that doesnt exist in config
+      //add new homes from API that doesnt exist in config
       for (const foundHome of availableHomesInApis) {
 
         let found = false;

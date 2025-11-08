@@ -214,7 +214,7 @@ export default (api, accessories, config, tado, telegram) => {
             // Use AC-specific overlay for AIR_CONDITIONING zones
             if (accessory.context.config.type === 'AIR_CONDITIONING') {
 
-              // Map HomeKit target state to Tado AC mode
+              // Map Apple Home target state to tado AC mode
               let acMode = 'COOL'; // Default to COOL
 
               // Get current target state from HeaterCooler service for proper mode detection
@@ -222,7 +222,7 @@ export default (api, accessories, config, tado, telegram) => {
               if (heaterCoolerService) {
                 let targetState = heaterCoolerService.getCharacteristic(api.hap.Characteristic.TargetHeaterCoolerState).value;
 
-                // Map HomeKit target states to Tado AC modes
+                // Map Apple Home target states to tado AC modes
                 // 1 = Heat, 2 = Cool, 3 = Auto
                 switch (targetState) {
                   case 1:
@@ -1092,7 +1092,7 @@ export default (api, accessories, config, tado, telegram) => {
             const acMode = zoneState.setting.mode || 'COOL';
             tempEqual = currentTemp && targetTemp ? Math.abs(currentTemp - targetTemp) < 0.5 : false;
 
-            // Map AC modes to HomeKit states
+            // Map AC modes to Apple Home states
             switch (acMode.toUpperCase()) {
               case 'HEAT':
                 targetState = 1; // Heating

@@ -19,30 +19,30 @@ const schema = {
       'properties': {
         'id': {
           'title': 'Home ID',
-          'description': 'The id of your Home. Has to be the exact same id as in the web app of Tado.',
+          'description': 'The id of your Home. Has to be the exact same id as in the web app of tado.',
           'type': 'integer'
         },
         'name': {
           'title': 'Home Name',
-          'description': 'The name of your Home. Has to be the exact same name as in the web app of Tado.',
+          'description': 'The name of your Home. Has to be the exact same name as in the web app of tado.',
           'type': 'string',
           'required': true
         },
         'username': {
           'title': 'Username',
           'type': 'string',
-          'description': 'The user name that you use for the app and the web app of Tado.',
+          'description': 'The user name that you use for the app and the web app of tado.',
           'required': true
         },
         'tadoApiUrl': {
           'title': 'Tado API URL',
           'type': 'string',
-          'description': 'Optional: Use a custom tado api url (e.g. http://localhost:8080).'
+          'description': 'Optional: Use a custom tado API url (e.g. http://localhost:8080).'
         },
         'skipAuth': {
           'title': 'Skip Authentication',
           'type': 'boolean',
-          'description': 'Optional: Skip authentication for tado api.'
+          'description': 'Optional: Skip authentication for tado API.'
         },
         'polling': {
           'title': 'Polling',
@@ -53,7 +53,7 @@ const schema = {
         },
         'temperatureUnit': {
           'title': 'Temperature Unit',
-          'description': 'Temperature Unit for accessories in HomeKit exposed by this plugin.',
+          'description': 'Temperature Unit for accessories in Apple Home exposed by this plugin.',
           'type': 'string',
           'default': 'CELSIUS',
           'oneOf': [
@@ -127,7 +127,7 @@ const schema = {
                   'active': {
                     'title': 'Active',
                     'type': 'boolean',
-                    'description': 'If enabled, a new motion/occupancy sensor for this user will be exposed to HomeKit.'
+                    'description': 'If enabled, a new motion/occupancy sensor for this user will be exposed to Apple Home.'
                   },
                   'name': {
                     'title': 'Name',
@@ -169,12 +169,12 @@ const schema = {
             'temperatureSensor': {
               'title': 'Temperature Sensor',
               'type': 'boolean',
-              'description': 'If enabled, a temperature sensor for the weather will be exposed to HomeKit.'
+              'description': 'If enabled, a temperature sensor for the weather will be exposed to Apple Home.'
             },
             'solarIntensity': {
               'title': 'Solar Intensity',
               'type': 'boolean',
-              'description': 'If enabled, a lightbulb accessory for the solar intensity will be exposed to HomeKit.'
+              'description': 'If enabled, a lightbulb accessory for the solar intensity will be exposed to Apple Home.'
             },
             'accTypeSolarIntensity': {
               'title': 'Solar Intensity Accessory Type',
@@ -207,7 +207,7 @@ const schema = {
             'centralSwitch': {
               'title': 'Central Switch',
               'type': 'boolean',
-              'description': 'If enabled, a switch will be exposed to HomeKit to enable/disable all thermostats/boiler at once.'
+              'description': 'If enabled, a switch will be exposed to Apple Home to enable/disable all thermostats/boiler at once.'
             },
             'runningInformation': {
               'title': 'Heat Running Information',
@@ -220,7 +220,7 @@ const schema = {
             'presenceLock': {
               'title': 'Presence Lock',
               'type': 'boolean',
-              'description': 'If enabled, a Home/Away switch will be exposed to HomeKit.'
+              'description': 'If enabled, a Home/Away switch will be exposed to Apple Home.'
             },
             'accTypePresenceLock': {
               'title': 'Presence Lock Accessory Type',
@@ -282,7 +282,7 @@ const schema = {
                   'active': {
                     'title': 'Active',
                     'type': 'boolean',
-                    'description': 'If enabled, a child lock switch for this device will be exposed to HomeKit.'
+                    'description': 'If enabled, a child lock switch for this device will be exposed to Apple Home.'
                   },
                   'name': {
                     'title': 'Name',
@@ -293,7 +293,7 @@ const schema = {
                   'serialNumber': {
                     'title': 'Device Serial Number',
                     'type': 'string',
-                    'description': 'Enter the serial number of the device from which you want to display a \'Child Lock Switch\' in HomeKit. (only for devices with child lock support)',
+                    'description': 'Enter the serial number of the device from which you want to display a \'Child Lock Switch\' in Apple Home. (only for devices with child lock support)',
                     'required': true,
                     'condition': {
                       'functionBody': 'try { return model.homes.extras.childLockSwitches[arrayIndices[0]].active } catch(e){ return false }'
@@ -313,12 +313,12 @@ const schema = {
               'active': {
                 'title': 'Active',
                 'type': 'boolean',
-                'description': 'If enabled, a new thermostat/boiler switch will be exposed to HomeKit.'
+                'description': 'If enabled, a new thermostat/boiler switch will be exposed to Apple Home.'
               },
               'id': {
                 'title': 'ID',
                 'type': 'integer',
-                'description': 'Zone ID. Has to be the exact same id as in the web app of Tado.',
+                'description': 'Zone ID. Has to be the exact same id as in the web app of tado.',
                 'condition': {
                   'functionBody': 'try { return model.homes.zones[arrayIndices[0]].active } catch(e){ return false }'
                 }
@@ -326,7 +326,7 @@ const schema = {
               'name': {
                 'title': 'Name',
                 'type': 'string',
-                'description': 'Zone Name. Has to be the exact same name as in the web app of Tado.',
+                'description': 'Zone Name. Has to be the exact same name as in the web app of tado.',
                 'required': true
               },
               'delaySwitch': {
@@ -342,12 +342,12 @@ const schema = {
               'openWindowSensor': {
                 'title': 'Open Window Sensor',
                 'type': 'boolean',
-                'description': 'If enabled, additional window contact accessory for each zone will be exposed to HomeKit which triggers if tado detects an open window.'
+                'description': 'If enabled, additional window contact accessory for each zone will be exposed to Apple Home which triggers if tado detects an open window.'
               },
               'openWindowSwitch': {
                 'title': 'Open Window Switch',
                 'type': 'boolean',
-                'description': 'If enabled, additional window switch accessory for each zone will be exposed to HomeKit to trigger and enable/disable open window.'
+                'description': 'If enabled, additional window switch accessory for each zone will be exposed to Apple Home to trigger and enable/disable open window.'
               },
               'separateTemperature': {
                 'title': 'Separate Temperature Sensors',
@@ -432,7 +432,7 @@ const schema = {
                 'condition': {
                   'functionBody': 'try { return model.homes.zones[arrayIndices[0]].type === \'HEATING\' } catch(e){ return false }'
                 },
-                'description': 'If enabled, the battery indicator will be removed from HomeKit.'
+                'description': 'If enabled, the battery indicator will be removed from Apple Home.'
               },
               'type': {
                 'title': 'Type',

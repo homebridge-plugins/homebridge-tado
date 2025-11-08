@@ -206,7 +206,7 @@ class TadoPlatform {
       Logger.info('Identify requested.', accessory.displayName);
     });
 
-    const manufacturer = 'Tado';
+    const manufacturer = 'tado';
 
     const model = device.model ? device.model : device.subtype;
 

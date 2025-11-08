@@ -14,7 +14,7 @@
 
 This plugin has originally been created by [Seydx](https://github.com/seydx/). Donate to him: [![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=flat-square&maxAge=2592000)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=NP4T3KASWQLD8). It is currently maintained by [smart7324](https://buymeacoffee.com/smart7324).
 
-**Homebridge Tado** is possibly the biggest homebridge plugin for Tado devices. 
+**Homebridge tado** is possibly the biggest homebridge plugin for tado devices. 
 
 **Multiple home Support**
 
@@ -22,7 +22,7 @@ The plugin even offers support for multiple houses. So it is finally possible to
 
 **Full Apple Home Support**
 
-Everything Tado offers can be displayed through the plugin in Apple Home. The thermostat buttons themselves have custom characteristics. Full hot water support, weather temperature, solar intensity, weather, tado quick actions, child lock, presence lock, Air Conditioning and much more awaits you with this plugin!
+Most features that tado offers are fully supported and can be displayed through this plugin in Apple Home. The thermostat buttons themselves have custom characteristics. Full hot water support, weather temperature, solar intensity, weather, tado quick actions, child lock, presence lock, Air Conditioning and much more awaits you with this plugin!
 
 ## Installation
 
@@ -57,6 +57,7 @@ After [Homebridge](https://github.com/nfarina/homebridge) has been installed:
   - [History Service](#history-service)
   - [Telegram](#telegram)
 - [Supported Clients](#supported-clients)
+- [tado X Compatibility](#tado-x-compatibility)
 - [Contributing](#contributing)
 - [Troubleshooting](#troubleshooting)
 
@@ -108,17 +109,17 @@ See [Example Config](https://github.com/homebridge-plugins/homebridge-tado/blob/
 
 ## Authentication
 
-This plugin implements the Tado-supported authentication using the [Device Code Grant Flow](https://support.tado.com/en/articles/8565472-how-do-i-authenticate-to-access-the-rest-api).
+This plugin implements the tado-supported authentication using the [Device Code Grant Flow](https://support.tado.com/en/articles/8565472-how-do-i-authenticate-to-access-the-rest-api).
 
-During the initial setup, the plugin will prompt you to open a specific URL in your web browser. You will then be asked to log in with your Tado account and grant access to the new device. Once this process has been completed successfully, the plugin automatically handles all subsequent authentication tasks, including secure token storage, token refresh, and renewal. This ensures continuous access to the Tado API v2 without further user interaction.
+During the initial setup, the plugin will prompt you to open a specific URL in your web browser. You will then be asked to log in with your tado account and grant access to the new device. Once this process has been completed successfully, the plugin automatically handles all subsequent authentication tasks, including secure token storage, token refresh, and renewal. This ensures continuous access to the tado API v2 without further user interaction.
 
 ### Custom API Configuration
 
-For advanced use cases, the plugin allows overriding the default Tado API endpoint by specifying a custom API URL through the `tadoApiUrl` parameter within each home configuration.
+For advanced use cases, the plugin allows overriding the default tado API endpoint by specifying a custom API URL through the `tadoApiUrl` parameter within each home configuration.
 
 Additionally, it is possible to disable the built-in authentication flow entirely by setting the `skipAuth` parameter to `true`. When enabled, all API requests will be sent without an authentication token.
 
-**Important:** Use `skipAuth` only if you are certain that your setup does not require token-based authentication. Improper use may result in limited or failed communication with the Tado API.
+**Important:** Use `skipAuth` only if you are certain that your setup does not require token-based authentication. Improper use may result in limited or failed communication with the tado API.
 
 For further details and configuration examples, refer to the related discussion:  
 [homebridge-tado issue #176 – Authentication Options](https://github.com/homebridge-plugins/homebridge-tado/issues/176#issuecomment-3419839118)
@@ -231,7 +232,7 @@ Each zone in the config.json with `"type": "AIR_CONDITIONING"` is exposed to App
 - Elgato EVE history feature (FakeGato)
 
 **AC-Specific Features**
-Air conditioning zones support both heating and cooling modes with dedicated cooling threshold temperature control. Fan speed and swing controls are handled through the Tado app, while Apple Home integration focuses on temperature and mode control for optimal compatibility. Note that the RotationSpeed characteristic is not supported for AC units.
+Air conditioning zones support both heating and cooling modes with dedicated cooling threshold temperature control. Fan speed and swing controls are handled through the tado app, while Apple Home integration focuses on temperature and mode control for optimal compatibility. Note that the RotationSpeed characteristic is not supported for AC units.
 
 **Mode / Mode Timer**
 `mode` for the commands to be sent with. can be 'MANUAL' for manual control until ended by the user, 'AUTO' for manual control until next schedule change in tado° app OR 'TIMER' for manual control until timer ends. `modeTimer` for the `MANUAL` mode in minutes.
@@ -412,7 +413,7 @@ This option changes how combined state + temperature updates are interpreted:
 ## Extras
 
 ### Central Switch
-Shows a switch accessory with additional switches in Apple Home which mimics the "Boost" and "Turnoff" switch from Tado. It also shows the Heater Running information as a custom characteristic for the month (in hours) and it shows also how many thermostats are in auto, manual or off mode. Its also possible to show a dummy switch withiun the central switch for eg. automation purposes.
+Shows a switch accessory with additional switches in Apple Home which mimics the "Boost" and "Turnoff" switch from tado. It also shows the Heater Running information as a custom characteristic for the month (in hours) and it shows also how many thermostats are in auto, manual or off mode. Its also possible to show a dummy switch withiun the central switch for eg. automation purposes.
 
 ```
 "homes": [
@@ -432,7 +433,7 @@ Shows a switch accessory with additional switches in Apple Home which mimics the
 ```
 
 #### Boost Switch
-Shows a switch accessory in Apple Home (added to central switch) which mimics the "Boost" switch from Tado and switches all heaters to max temperature. 
+Shows a switch accessory in Apple Home (added to central switch) which mimics the "Boost" switch from tado and switches all heaters to max temperature. 
 _Note: Central Switch needs to be truned on._
 
 ```
@@ -453,7 +454,7 @@ _Note: Central Switch needs to be truned on._
 ```
 
 #### Shedule Switch
-Shows a switch accessory in Apple Home (added to central switch) which mimics the "Shedule" switch from Tado and switches all heaters to their default shedule
+Shows a switch accessory in Apple Home (added to central switch) which mimics the "Shedule" switch from tado and switches all heaters to their default shedule
 _Note: Central Switch needs to be truned on._
 
 ```
@@ -474,7 +475,7 @@ _Note: Central Switch needs to be truned on._
 ```
 
 #### Turnoff Switch
-Shows a switch accessory in Apple Home (added to central switch) which mimics the "Turn Off" switch from Tado and switches all heaters off
+Shows a switch accessory in Apple Home (added to central switch) which mimics the "Turn Off" switch from tado and switches all heaters off
 _Note: Central Switch needs to be truned on._
 
 ```
@@ -630,6 +631,21 @@ This plugin has been verified to work with the latest versions of:
 * Apple Home (Apple HomeKit)
 * 3rd party apps like Elgato Eve
 * Homebridge
+
+## tado X Compatibility
+
+**tado X devices are not supported.**
+
+The new generation of tado X devices uses a completely different API endpoint (`https://hops.tado.com`) and communication methods that are not compatible with the existing tado API (`https://my.tado.com/api/v2`) used by this plugin.
+
+Supporting tado X devices would require a full integration of the new API, which is currently **not planned** due to the significant development effort involved.
+
+For more technical details about the tado X API, see:
+- [tado X – API differences (wiki)](https://github.com/kritsel/tado-openapispec-v2/wiki/tado-X)  
+- [Swagger documentation](https://kritsel.github.io/tado-openapispec-v2/swagger.html#/)  
+- [Postman collection & additional resources](https://github.com/gedhi/tadox-postman-collection?tab=readme-ov-file#additional-resources)
+
+If you are using tado X devices, please note that this plugin will **not be able to control or display** those devices at the moment.
 
 ## Contributing
 
