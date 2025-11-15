@@ -1,5 +1,8 @@
 # Changelog
 
+## v8.7.3 - 2025-11-15
+- Update dependencies due to vulnerability
+
 ## v8.7.2 - 2025-11-08
 - Add notice about tado X compatibility to documentation (#179)
 - Use consistent spelling for tado and Apple Home across the entire plugin
