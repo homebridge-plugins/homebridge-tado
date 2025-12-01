@@ -1,5 +1,8 @@
 # Changelog
 
+## v8.8.0 - 2025-12-01
+- Fix: Color of re-sync button in config UI (#187)
+
 ## v8.7.3 - 2025-11-15
 - Update dependencies due to vulnerability
 
