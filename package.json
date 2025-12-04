@@ -1,6 +1,6 @@
 {
   "name": "@homebridge-plugins/homebridge-tado",
-  "version": "8.7.4",
+  "version": "8.7.5",
   "description": "Homebridge plugin for controlling tado° devices.",
   "main": "index.js",
   "scripts": {
@@ -49,6 +49,6 @@
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-prettier": "^5.5.4",
     "globals": "^16.5.0",
-    "prettier": "^3.7.3"
+    "prettier": "^3.7.4"
   }
 }
