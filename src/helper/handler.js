@@ -564,7 +564,7 @@ export default (api, accessories, config, tado, telegram) => {
           break;
       }
     } catch (error) {
-      Logger.error(`Failed to set states: ${error.message || error}`);
+      Logger.error(`Failed to set states: ${error.message || JSON.stringify(error)}`);
     } finally {
       delete helpers[config.homeId].activeSettingStateRuns[runId];
       //update zones to ensure correct state in Apple Home
@@ -744,7 +744,7 @@ export default (api, accessories, config, tado, telegram) => {
         Logger.warn(`Skipping persistence of tado states file for home ${homeId}: zone states are empty.`);
       }
     } catch (error) {
-      Logger.error(`Error while updating the tado states file for home ${homeId}: ${error.message || error}`);
+      Logger.error(`Error while updating the tado states file for home ${homeId}: ${error.message || JSON.stringify(error)}`);
     }
   }
 
@@ -757,7 +757,7 @@ export default (api, accessories, config, tado, telegram) => {
         refreshHistory();
       }
     } catch (error) {
-      Logger.error(`Error while refreshing history services: ${error.message || error}`);
+      Logger.error(`Error while refreshing history services: ${error.message || JSON.stringify(error)}`);
     }
   }
 
@@ -796,7 +796,7 @@ export default (api, accessories, config, tado, telegram) => {
       //Child Lock
       if (config.childLock.length) await updateDevices();
     } catch (error) {
-      Logger.error(`Failed to get states: ${error.message || error}`);
+      Logger.error(`Failed to get states: ${error.message || JSON.stringify(error)}`);
     } finally {
       void refreshHistoryServices();
     }
@@ -850,7 +850,7 @@ export default (api, accessories, config, tado, telegram) => {
         try {
           await _updateZones();
         } catch (error) {
-          Logger.error(`Failed to update zones: ${error.message || error}`);
+          Logger.error(`Failed to update zones: ${error.message || JSON.stringify(error)}`);
         }
         if (helpers[config.homeId].updateZonesNextQueued) {
           helpers[config.homeId].updateZonesNextQueued = false;

@@ -59,7 +59,7 @@ export default class Tado {
       if (data) return JSON.parse(data);
     } catch (error) {
       //no persisted counter data => ignore
-      Logger.debug(`Failed to read tado API file for user ${this.hashedUsername}: ${error.message || error}`);
+      Logger.debug(`Failed to read tado API file for user ${this.hashedUsername}: ${error.message || JSON.stringify(error)}`);
     }
   }
 
@@ -82,7 +82,7 @@ export default class Tado {
       this._counter++;
       this._counterTimestamp = new Date().toISOString();
     } catch (error) {
-      Logger.warn(`Failed to increase tado API counter: ${error.message || error}`);
+      Logger.warn(`Failed to increase tado API counter: ${error.message || JSON.stringify(error)}`);
     }
   }
 
@@ -100,7 +100,7 @@ export default class Tado {
       data.counterData = await this._getCounterData();
       await writeFile(join(this.storagePath, `tado-api-${this.hashedUsername}.json`), JSON.stringify(data, null, 2), "utf-8");
     } catch (error) {
-      Logger.error(`Error while updating the tado API file for user ${this.hashedUsername}: ${error.message || error}`);
+      Logger.error(`Error while updating the tado API file for user ${this.hashedUsername}: ${error.message || JSON.stringify(error)}`);
     }
   }
 
@@ -109,7 +109,7 @@ export default class Tado {
       const counter = (await this._getCounterData()).counter;
       Logger.info(`tado API counter: ${counter.toLocaleString('en-US')}`);
     } catch (error) {
-      Logger.warn(`Failed to get tado API counter: ${error.message || error}`);
+      Logger.warn(`Failed to get tado API counter: ${error.message || JSON.stringify(error)}`);
     }
   }
 
@@ -135,7 +135,7 @@ export default class Tado {
 
       return this._tadoBearerToken.access_token;
     } catch (error) {
-      throw new Error(`API call failed. Could not get access token: ${error.message || error}`);
+      throw new Error(`API call failed. Could not get access token: ${error.message || JSON.stringify(error)}`);
     }
   }
 
@@ -184,7 +184,7 @@ export default class Tado {
       await writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
       this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
     } catch (error) {
-      Logger.warn(`Error while refreshing token: ${error.message || error}`);
+      Logger.warn(`Error while refreshing token: ${error.message || JSON.stringify(error)}`);
       return this._authenticateUser();
     }
   }

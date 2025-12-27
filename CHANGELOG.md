@@ -1,5 +1,9 @@
 # Changelog
 
+## v8.7.6 - 2025-12-27
+- Fix: Error logging for objects
+- Update dependencies
+
 ## v8.7.5 - 2025-12-04
 - Update dependencies due to vulnerability
 
