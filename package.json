@@ -4,7 +4,8 @@
   "description": "Homebridge plugin for controlling tado° devices.",
   "main": "index.js",
   "scripts": {
-    "eslint": "eslint --fix ."
+    "lint": "eslint",
+    "lint:fix": "npm run lint -- --fix"
   },
   "type": "module",
   "repository": {
