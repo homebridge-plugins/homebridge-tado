@@ -979,6 +979,7 @@ export default (api, accessories, config, tado, telegram) => {
         if (thermoAccessory.length) {
           thermoAccessory.forEach((acc) => {
             if (acc.displayName.includes(zone.name)) {
+              Logger.debug(`Update accessory ${acc.displayName} of zone ${zone.id}.`);
               let serviceThermostat = acc.getService(api.hap.Service.Thermostat);
               let serviceHeaterCooler = acc.getService(api.hap.Service.HeaterCooler);
 
@@ -997,6 +998,7 @@ export default (api, accessories, config, tado, telegram) => {
                 let characteristicHumidity = api.hap.Characteristic.CurrentRelativeHumidity;
                 let characteristicUnit = api.hap.Characteristic.TemperatureDisplayUnits;
 
+                let newValue;
                 if (!isNaN(currentTemp)) {
                   acc.context.config.temperatureUnit = acc.context.config.temperatureUnit || config.temperatureUnit;
 
@@ -1006,7 +1008,7 @@ export default (api, accessories, config, tado, telegram) => {
                   let cToF = (c) => Math.round((c * 9) / 5 + 32);
                   let fToC = (f) => Math.round(((f - 32) * 5) / 9);
 
-                  let newValue = unitChanged ? (isFahrenheit ? cToF(currentTemp) : fToC(currentTemp)) : currentTemp;
+                  newValue = unitChanged ? (isFahrenheit ? cToF(currentTemp) : fToC(currentTemp)) : currentTemp;
 
                   serviceThermostat.getCharacteristic(characteristicCurrentTemp).updateValue(newValue);
                 }
@@ -1022,6 +1024,14 @@ export default (api, accessories, config, tado, telegram) => {
 
                 if (!isNaN(humidity) && serviceThermostat.testCharacteristic(characteristicHumidity))
                   serviceThermostat.getCharacteristic(characteristicHumidity).updateValue(humidity);
+
+                Logger.debug(`Setting new values for thermostat ${acc.displayName}.`, {
+                  currentTemperature: newValue ?? 'N/A',
+                  targetTemperature: targetTemp ?? 'N/A',
+                  currentState: currentState ?? 'N/A',
+                  targetState: targetState ?? 'N/A',
+                  humidity: humidity ?? 'N/A'
+                });
               }
 
               if (serviceHeaterCooler) {

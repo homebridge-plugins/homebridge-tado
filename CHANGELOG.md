@@ -1,5 +1,8 @@
 # Changelog
 
+## v8.7.8 - 2026-01-11
+- Add more debug logs for accessory state updates
+
 ## v8.7.7 - 2026-01-01
 - Update dependencies due to vulnerability
 
