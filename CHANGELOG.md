@@ -1,6 +1,7 @@
 # Changelog
 
-## v8.7.8 - 2026-01-11
+## v8.7.8 - 2026-01-13
+- Fix: Match zones by name and type when updating zone states (#192)
 - Add more debug logs for accessory state updates
 
 ## v8.7.7 - 2026-01-01

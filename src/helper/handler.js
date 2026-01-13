@@ -888,9 +888,10 @@ export default (api, accessories, config, tado, telegram) => {
 
     const allZones = (await tado.getZones(config.homeId)) || [];
 
+    Logger.debug("_updateZones: config zones", config.zones);
     for (const [index, zone] of config.zones.entries()) {
       allZones.forEach((zoneWithID) => {
-        if (zoneWithID.name === zone.name) {
+        if (zoneWithID.name === zone.name && zoneWithID.type === zone.type) {
           const heatAccessory = accessories.filter(
             (acc) => acc && acc.displayName === config.homeName + ' ' + zone.name + ' Heater'
           );
