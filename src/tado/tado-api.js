@@ -258,13 +258,15 @@ export default class Tado {
     const access_token = this.skipAuth ? undefined : await this.getToken();
     const url = `${tado_url_dif || this.tadoApiUrl}${path}`;
 
-    const config = {
+    const options = {
       method,
       responseType: 'json',
       headers: access_token ?
         { Authorization: `Bearer ${access_token}` } :
         undefined,
-      timeout: { request: 30000 },
+      timeout: {
+        request: 15000
+      },
       retry: {
         limit: 2,
         statusCodes: [408, 429, 503, 504],
@@ -272,12 +274,12 @@ export default class Tado {
       },
     };
 
-    // Only add data to config for non-GET methods and when data has content
+    //only add data to options for non-GET methods and when data has content
     if (data && typeof data === 'object' && Object.keys(data).length > 0 && method !== 'GET') {
-      config.json = data;
+      options.json = data;
     }
 
-    if (Object.keys(params).length) config.searchParams = params;
+    if (Object.keys(params).length) options.searchParams = params;
 
     Logger.debug('API request start', {
       name: this.name,
@@ -288,7 +290,7 @@ export default class Tado {
     });
 
     try {
-      const response = await got(url, config);
+      const response = await got(url, options);
       await this._increaseCounter();
       Logger.debug('API request success', {
         name: this.name,
