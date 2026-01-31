@@ -13,7 +13,9 @@
                     "username": "mail@example.com",
                     "tadoApiUrl": "",
                     "skipAuth": false,
+                    "addJitter": false,
                     "polling": 300,
+                    "nightPolling": 300,
                     "temperatureUnit": "CELSIUS",
                     "geolocation": {
                         "longitude": "10.1234567",

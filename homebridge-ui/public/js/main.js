@@ -1107,7 +1107,9 @@ async function fetchDevices(auth, refresh, resync) {
             username: foundHome.username,
             tadoApiUrl: foundHome.tadoApiUrl,
             skipAuth: foundHome.skipAuth,
+            addJitter: false,
             polling: 300,
+            nightPolling: 300,
             zones: [],
             presence: {
               anyone: false,
@@ -1265,7 +1267,9 @@ async function fetchDevices(auth, refresh, resync) {
             username: auth.username,
             tadoApiUrl: auth.tadoApiUrl,
             skipAuth: auth.skipAuth,
+            addJitter: false,
             polling: 300,
+            nightPolling: 300,
             zones: [],
             presence: {
               anyone: false,

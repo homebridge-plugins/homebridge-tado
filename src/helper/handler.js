@@ -13,7 +13,6 @@ export default (api, accessories, config, tado, telegram) => {
     helpers[config.homeId] = {
       activeSettingStateRuns: {},
       tasksInitialized: false,
-      lastGetStates: 0,
       lastPersistZoneStates: 0,
       persistPromise: Promise.resolve(),
       updateZonesRunning: false,
@@ -21,6 +20,8 @@ export default (api, accessories, config, tado, telegram) => {
       delayTimer: {},
       refreshHistoryHandlers: [],
       statesIntervalTime: Math.max(config.polling, 30) * 1000,
+      statesIntervalTimeNight: config.nightPolling ? Math.max(config.nightPolling, config.polling, 30) * 1000 : undefined,
+      nextPollingTime: 0,
       storagePath: api.user.storagePath(),
     }
   }
@@ -568,9 +569,7 @@ export default (api, accessories, config, tado, telegram) => {
     } finally {
       delete helpers[config.homeId].activeSettingStateRuns[runId];
       //update zones to ensure correct state in Apple Home
-      const timeSinceLastGetStates = helpers[config.homeId].lastGetStates === 0 ? 0 : (Date.now() - helpers[config.homeId].lastGetStates);
-      const statesIntervalTimeLeft = helpers[config.homeId].statesIntervalTime - timeSinceLastGetStates;
-      if (!settingStates() && zoneUpdated && statesIntervalTimeLeft > (10 * 1000)) await updateZones();
+      if (!settingStates() && zoneUpdated && _getTimeUntilNextPolling() > (10 * 1000)) await updateZones();
     }
   }
 
@@ -761,16 +760,42 @@ export default (api, accessories, config, tado, telegram) => {
     }
   }
 
+  function _getTimeUntilNextPolling() {
+    return Math.max(0, (helpers[config.homeId].nextPollingTime ?? 0) - Date.now());
+  }
+
+  function _getPollingInterval() {
+    const hour = helpers[config.homeId].statesIntervalTimeNight ? new Date().getHours() : undefined;
+    let interval;
+    if (helpers[config.homeId].statesIntervalTimeNight && hour >= 0 && hour < 6) {
+      interval = helpers[config.homeId].statesIntervalTimeNight;
+    } else {
+      interval = helpers[config.homeId].statesIntervalTime;
+    }
+    const addJitter = config.addJitter?.toString() === "true";
+    if (!addJitter) return interval;
+    //use 10 percent jitter
+    const jitter = interval * 0.1;
+    const randomOffset = Math.round((Math.random() * 2 - 1) * jitter);
+    return interval + randomOffset;
+  }
+
   function initTasks() {
     if (helpers[config.homeId].tasksInitialized) return;
     helpers[config.homeId].tasksInitialized = true;
-
-    void getStates();
-    setInterval(() => void getStates(), helpers[config.homeId].statesIntervalTime);
+    async function poll() {
+      try {
+        await getStates();
+      } finally {
+        const interval = _getPollingInterval();
+        helpers[config.homeId].nextPollingTime = Date.now() + interval;
+        setTimeout(poll, interval);
+      }
+    }
+    void poll();
   }
 
   async function getStates() {
-    helpers[config.homeId].lastGetStates = Date.now();
     try {
       //ME
       if (!config.homeId) await updateMe();

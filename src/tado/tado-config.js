@@ -42,7 +42,9 @@ export default {
             username: auth.username,
             tadoApiUrl: auth.tadoApiUrl,
             skipAuth: auth.skipAuth,
+            addJitter: false,
             polling: 300,
+            nightPolling: 300,
             zones: [],
             presence: {
               anyone: false,
@@ -513,6 +515,7 @@ export default {
             username: home.username,
             tadoApiUrl: home.tadoApiUrl,
             skipAuth: home.skipAuth,
+            addJitter: home.addJitter,
             temperatureUnit: home.temperatureUnit || 'CELSIUS',
             geolocation: home.geolocation,
             tado: tado,
@@ -527,7 +530,8 @@ export default {
               home.extras && home.extras.childLockSwitches
                 ? home.extras.childLockSwitches.filter((childLockSwitch) => childLockSwitch && childLockSwitch.active)
                 : [],
-            polling: Number.isInteger(home.polling) ? (home.polling < 30 ? 30 : home.polling) : 300,
+            polling: Number.isInteger(home.polling) ? Math.max(home.polling, 30) : 300,
+            nightPolling: home.nightPolling && Number.isInteger(home.nightPolling) ? Math.max(home.nightPolling, home.polling, 30) : undefined
           };
 
           if (home.zones && home.zones.length) {

@@ -38,6 +38,7 @@ After [Homebridge](https://github.com/nfarina/homebridge) has been installed:
 - [Configuration](#configuration)
   - [Authentication](#authentication)
     - [Custom API Configuration](#custom-api-configuration)
+  - [Polling Behavior Configuration](#polling-behavior-configuration)
   - [Thermostat](#thermostat)
     - [Open Window](#open-window)
   - [Air Conditioning](#air-conditioning)
@@ -123,6 +124,14 @@ Additionally, it is possible to disable the built-in authentication flow entirel
 
 For further details and configuration examples, refer to the related discussion:  
 [homebridge-tado issue #176 – Authentication Options](https://github.com/homebridge-plugins/homebridge-tado/issues/176#issuecomment-3419839118)
+
+## Polling Behavior Configuration
+
+To better control API usage and reduce unnecessary load, the plugin provides additional polling-related options:
+
+When `addJitter` is enabled, a random ±10% jitter is applied to the polling interval.
+
+The setting `nightPolling` optionally defines a longer polling interval during nighttime hours (00:00–06:00, local time). This reduces overnight API activity while maintaining normal polling behavior during the day.
 
 ## Thermostat
 

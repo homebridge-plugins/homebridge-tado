@@ -44,9 +44,21 @@ const schema = {
           'type': 'boolean',
           'description': 'Optional: Skip authentication for tado API.'
         },
+        'addJitter': {
+          'title': 'Add Jitter',
+          'type': 'boolean',
+          'description': 'Optional: Add a ±10% random variation in the polling interval.'
+        },
         'polling': {
           'title': 'Polling',
           'description': 'The polling interval in seconds (recommended value: 300).',
+          'type': 'integer',
+          'default': 300,
+          'minimum': 30
+        },
+        'nightPolling': {
+          'title': 'Night Polling',
+          'description': 'Optional: The polling interval in seconds used during night between 00:00 - 06:00.',
           'type': 'integer',
           'default': 300,
           'minimum': 30
@@ -580,6 +592,7 @@ const schema = {
     'preferSiriTemperature',
     'homes.name',
     'homes.polling',
+    'homes.nightPolling',
     'homes.temperatureUnit',
     {
       'key': 'homes',
@@ -592,6 +605,7 @@ const schema = {
         'homes.id',
         'homes.tadoApiUrl',
         'homes.skipAuth',
+        'homes.addJitter',
         'homes.username'
       ]
     },

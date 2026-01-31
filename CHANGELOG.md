@@ -1,5 +1,12 @@
 # Changelog
 
+## v8.8.0 - 2026-01-31
+- Add `addJitter` option to introduce a ±10% random variation in the polling interval
+- Add `nightPolling` option to optionally use a longer interval overnight, lowering polling activity between 00:00–06:00
+- Change: Schedule the next polling cycle after the previous poll completes, using the configured interval
+- Change: Set timeout for tado api requests to 15 seconds
+- Update dependencies
+
 ## v8.7.8 - 2026-01-13
 - Fix: Match zones by name and type when updating zone states (#192)
 - Add more debug logs for accessory state updates
