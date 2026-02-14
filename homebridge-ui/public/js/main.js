@@ -1439,6 +1439,7 @@ async function fetchDevices(auth, refresh, resync) {
   try {
 
     //check version before load ui
+    //eslint-disable-next-line no-undef
     if (window.homebridge.serverEnv.env && window.compareVersions(window.homebridge.serverEnv.env.packageVersion, '4.34.0') < 0) {
       await showOldSchema(true);
       return;

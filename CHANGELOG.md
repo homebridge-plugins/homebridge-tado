@@ -1,5 +1,10 @@
 # Changelog
 
+## v8.8.1 - 2026-02-14
+- Update dependencies
+- Update qs due to vulnerability
+- Update eslint and drop obsolete dev dependencies
+
 ## v8.8.0 - 2026-01-31
 - Add `addJitter` option to introduce a ±10% random variation in the polling interval
 - Add `nightPolling` option to optionally use a longer interval overnight, lowering polling activity between 00:00–06:00

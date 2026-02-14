@@ -27,6 +27,7 @@ export default class SolarLightsensorAccessory {
 
     if (!service) {
       Logger.info('Adding LightSensor service', this.accessory.displayName);
+      // eslint-disable-next-line no-useless-assignment
       service = this.accessory.addService(
         this.api.hap.Service.LightSensor,
         this.accessory.displayName,
