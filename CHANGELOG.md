@@ -1,5 +1,8 @@
 # Changelog
 
+## v8.8.2 - 2026-03-21
+- Update dependencies due to vulnerability
+
 ## v8.8.1 - 2026-02-14
 - Update dependencies
 - Update qs due to vulnerability
