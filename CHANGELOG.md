@@ -1,5 +1,10 @@
 # Changelog
 
+## v9.0.0 - 2026-05-03
+- Require Node.js 22
+- Update dependencies
+- Update dependencies to fix vulnerabilities
+
 ## v8.8.2 - 2026-03-21
 - Update dependencies due to vulnerability
 
