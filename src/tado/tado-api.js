@@ -1,5 +1,6 @@
 import Logger from '../helper/logger.js';
 import got from 'got';
+import { createHash } from 'crypto';
 import { join } from 'path';
 import { access, readFile, writeFile } from 'fs/promises';
 
@@ -7,13 +8,12 @@ const tado_url = "https://my.tado.com";
 const tado_auth_url = "https://login.tado.com/oauth2";
 const tado_client_id = "1bb50063-6b0c-4d11-bd99-387f4a91cc46";
 
+// Stable, collision-resistant per-username token-file id. Existing users from
+// older versions will need to authenticate once after upgrade so a fresh token
+// file under the new name is created — a one-time cost in exchange for safely
+// distinct files when configuring multiple accounts.
 function _getSimpleHash(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-  }
-  return (hash >>> 0).toString(36).padStart(7, '0');
+  return createHash('sha256').update(String(str)).digest('hex').slice(0, 16);
 }
 
 export default class Tado {
@@ -31,6 +31,7 @@ export default class Tado {
     this._tadoApiClientId = tado_client_id;
     this._tadoTokenPromise = undefined;
     this._tadoAuthenticationCallback = undefined;
+    this._identityVerified = false;
     this._counterActivated = counterActivated?.toString() === "true";
     this._counterInitPromise = this._initCounter();
     Logger.debug("API successfull initialized", this.name);
@@ -169,6 +170,7 @@ export default class Tado {
   }
 
   async _refreshToken(old_refresh_token) {
+    let access_token, refresh_token;
     try {
       const response = await got.post(`${tado_auth_url}/token`, {
         form: {
@@ -179,14 +181,26 @@ export default class Tado {
         responseType: "json"
       });
       await this._increaseCounter();
-      const { access_token, refresh_token } = response.body;
+      ({ access_token, refresh_token } = response.body);
       if (!access_token || !refresh_token) throw new Error("Empty access/refresh token.");
-      await writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
       this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
     } catch (error) {
       Logger.warn(`Error while refreshing token: ${error.message || JSON.stringify(error)}`);
+      this._tadoBearerToken = { access_token: undefined, refresh_token: undefined, timestamp: 0 };
       return this._authenticateUser();
     }
+    // Once-per-process identity check covers token files that were written by
+    // older plugin versions when tado.com was logged in as the wrong account.
+    if (!this._identityVerified) {
+      try {
+        await this._verifyAuthenticatedIdentity();
+      } catch (error) {
+        this._tadoBearerToken = { access_token: undefined, refresh_token: undefined, timestamp: 0 };
+        Logger.warn(`Existing token failed identity check, re-authenticating: ${error.message}`);
+        return this._authenticateUser();
+      }
+    }
+    await writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
   }
 
   async _authenticateUser() {
@@ -201,7 +215,11 @@ export default class Tado {
     await this._increaseCounter();
     const { device_code, verification_uri_complete } = authResponse.body;
     if (!device_code) throw new Error("Failed to retrieve device code.");
-    Logger.info(`Open the following URL in your browser, click "submit" and log in to your tado° account "${this.username}": ${verification_uri_complete}`);
+    Logger.info(
+      `Open the following URL in a private/incognito window — or after logging out of tado.com — and sign in as "${this.username}". ` +
+      `If you are already signed in to tado.com as a different account, the "Submit" button will silently confirm THAT account, not "${this.username}". ` +
+      `URL: ${verification_uri_complete}`
+    );
     if (this._tadoAuthenticationCallback) this._tadoAuthenticationCallback(verification_uri_complete);
     const maxRetries = 30;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -223,8 +241,17 @@ export default class Tado {
       if (tokenResponse?.body) {
         const { access_token, refresh_token } = tokenResponse.body;
         if (access_token && refresh_token) {
-          await writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
           this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
+          try {
+            await this._verifyAuthenticatedIdentity();
+          } catch (error) {
+            // Clear the cached token before propagating, otherwise the 9-min
+            // cache in _getToken would happily hand the wrong-account token
+            // back to subsequent callers.
+            this._tadoBearerToken = { access_token: undefined, refresh_token: undefined, timestamp: 0 };
+            throw error;
+          }
+          await writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
           Logger.info("Authentication successful!");
           return;
         }
@@ -232,6 +259,46 @@ export default class Tado {
       Logger.info("Waiting for confirmation...");
     }
     throw new Error(`Failed to authenticate after ${maxRetries} attempts.`);
+  }
+
+  // Tado's device-code "Submit" page silently confirms whichever account is
+  // already signed in to tado.com, so a user trying to authenticate account B
+  // can end up granting tokens for account A without noticing. Verify the
+  // identity that actually came back matches the one we asked for, and abort
+  // if it doesn't — better a loud failure than a silent account mix-up that
+  // poisons a token file. Uses got directly because apiCall → getToken would
+  // re-enter the in-flight token promise and deadlock.
+  async _verifyAuthenticatedIdentity() {
+    if (!this.username) {
+      this._identityVerified = true;
+      return;
+    }
+    const access_token = this._tadoBearerToken?.access_token;
+    if (!access_token) throw new Error('No access token available for identity verification.');
+    const url = `${this.tadoApiUrl}/api/v2/me`;
+    let me;
+    try {
+      const response = await got(url, {
+        method: 'GET',
+        responseType: 'json',
+        headers: { Authorization: `Bearer ${access_token}` },
+        timeout: { request: 15000 }
+      });
+      await this._increaseCounter();
+      me = response.body;
+    } catch (error) {
+      throw new Error(`Could not verify identity after authentication: ${error.message || JSON.stringify(error)}`);
+    }
+    const actual = (me?.email || me?.username || '').toLowerCase();
+    const expected = this.username.toLowerCase();
+    if (actual && actual !== expected) {
+      throw new Error(
+        `Authenticated identity "${actual}" does not match the configured username "${this.username}". ` +
+        `This usually means tado.com was logged in as a different account when you clicked "Submit". ` +
+        `Sign out of tado.com (or use a private/incognito window) and try again.`
+      );
+    }
+    this._identityVerified = true;
   }
 
   async _retrieveTokenFromExternalFile() {

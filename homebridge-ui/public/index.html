@@ -33,6 +33,22 @@
     <h6 class="m-0 p-0">Custom UI cannot be displayed. The used Config UI X version is not supported!</h6>
   </div>
 
+  <!-- selectBridge: shown only when this plugin has multiple platform entries
+       (e.g. several child bridges). Lets the user pick which one this UI
+       session will configure so that newly added homes don't all funnel into
+       platforms[0]. -->
+  <div id="selectBridge" style="display:none;">
+    <img src="images/tado_logo.png" alt="tado meets Homebridge" width="150px" class="center-it mt-2 tadoLogo">
+    <h6 class="text-center">You have multiple Tado bridge instances configured.<br>Pick the one you want to configure now.</h6>
+    <div class="container mt-4" style="max-width: 360px;">
+      <div class="form-group">
+        <label for="bridgeSelectChoice">Bridge</label>
+        <select class="custom-select" id="bridgeSelectChoice"></select>
+      </div>
+      <button id="bridgeSelectContinue" type="submit" class="btn btn-primary float-right mt-3 mr-0">Continue</button>
+    </div>
+  </div>
+
   <!-- isConfigured -->
   <div id="isConfigured" style="display:none;">
     <button type="submit" class="btn btn-elegant oldConfig" style="position: absolute;">

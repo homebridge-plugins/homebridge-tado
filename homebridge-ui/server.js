@@ -10,64 +10,77 @@ class UiServer extends HomebridgePluginUiServer {
     this.onRequest('/exec', this.exec.bind(this));
     this.onRequest('/reset', this.reset.bind(this));
 
-    this.tado = false;
+    // Track instances per username so two concurrent settings panels
+    // (or two child-bridge configurations) don't clobber each other's API.
+    this.tadoInstances = new Map();
+    this.activeUsername = undefined;
 
     this.ready();
   }
 
   authenticate(config) {
 
-    this.tado = new TadoApi('Config UI X', {
-      username: config.username,
+    const username = config?.username;
+    if (!username) throw new RequestError('Username is required for authentication.');
+
+    const instance = new TadoApi('Config UI X', {
+      username: username,
       tadoApiUrl: config.tadoApiUrl,
       skipAuth: config.skipAuth
     }, this.homebridgeStoragePath, false);
 
+    this.tadoInstances.set(username, instance);
+    this.activeUsername = username;
+
     return;
   }
 
-  reset() {
+  reset(payload) {
 
-    this.tado = false;
+    const username = payload?.username;
+    if (username) {
+      this.tadoInstances.delete(username);
+      if (this.activeUsername === username) this.activeUsername = undefined;
+    } else {
+      this.tadoInstances.clear();
+      this.activeUsername = undefined;
+    }
 
     return;
   }
 
   async exec(payload) {
 
-    if (this.tado) {
+    const username = payload?.username || this.activeUsername;
+    const tado = username ? this.tadoInstances.get(username) : undefined;
 
-      try {
+    if (!tado) throw new RequestError('API not initialized!');
 
-        console.log('Executing /' + payload.dest);
+    try {
 
-        let value1, value2, value3;
+      console.log('Executing /' + payload.dest + (username ? ` for ${username}` : ''));
 
-        if (payload.data) {
-          if (typeof payload.data === 'object') {
-            value1 = payload.data[0];
-            value2 = payload.data[1];
-            value3 = payload.data[2];
-          } else {
-            value1 = payload.data;
-          }
+      let value1, value2, value3;
+
+      if (payload.data) {
+        if (typeof payload.data === 'object') {
+          value1 = payload.data[0];
+          value2 = payload.data[1];
+          value3 = payload.data[2];
+        } else {
+          value1 = payload.data;
         }
-
-        const data = await this.tado[payload.dest](value1, value2, value3);
-
-        return data;
-
-      } catch (err) {
-
-        console.log(err);
-
-        throw new RequestError(err.message);
-
       }
 
-    } else {
+      const data = await tado[payload.dest](value1, value2, value3);
 
-      throw new RequestError('API not initialized!');
+      return data;
+
+    } catch (err) {
+
+      console.log(err);
+
+      throw new RequestError(err.message);
 
     }
 

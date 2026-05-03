@@ -7,7 +7,38 @@ const pageNavigation = {
 
 let customSchemaActive = false;
 let pluginConfig = false;
+let activeIndex = 0;
 let currentHome = false;
+
+function bridgeLabel(entry, i) {
+  const name = entry && entry.name;
+  const childUsername = entry && entry._bridge && entry._bridge.username;
+  if (name && childUsername) return `${name} (child bridge ${childUsername})`;
+  if (name) return name;
+  if (childUsername) return `Child bridge ${childUsername}`;
+  return `Bridge ${i + 1}`;
+}
+
+async function chooseActiveBridge() {
+  if (!pluginConfig || pluginConfig.length <= 1) return;
+  const $select = $('#bridgeSelectChoice');
+  $select.empty();
+  pluginConfig.forEach((entry, i) => {
+    const homeCount = (entry && entry.homes && entry.homes.length) || 0;
+    const homesLabel = `${homeCount} home${homeCount === 1 ? '' : 's'}`;
+    $select.append(`<option value="${i}">${bridgeLabel(entry, i)} — ${homesLabel}</option>`);
+  });
+  $select.val(String(activeIndex));
+  await new Promise(resolve => {
+    $('#bridgeSelectContinue').off('click').on('click', () => {
+      const parsed = parseInt($select.val(), 10);
+      activeIndex = Number.isInteger(parsed) ? parsed : 0;
+      $('#selectBridge').hide();
+      resolve();
+    });
+    $('#selectBridge').fadeIn(250);
+  });
+}
 
 const TIMEOUT = (ms) => new Promise((res) => setTimeout(res, ms));
 
@@ -130,20 +161,20 @@ async function createCustomSchema(home) {
   //schema.layout.homes.forEach()
 
   customSchemaActive = homebridge.createForm(schema, {
-    name: pluginConfig[0].name,
-    debug: pluginConfig[0].debug,
-    disableHistoryService: pluginConfig[0].disableHistoryService,
-    preferSiriTemperature: pluginConfig[0].preferSiriTemperature,
+    name: pluginConfig[activeIndex].name,
+    debug: pluginConfig[activeIndex].debug,
+    disableHistoryService: pluginConfig[activeIndex].disableHistoryService,
+    preferSiriTemperature: pluginConfig[activeIndex].preferSiriTemperature,
     homes: home
   });
 
   customSchemaActive.onChange(async config => {
 
-    pluginConfig[0].name = config.name;
-    pluginConfig[0].debug = config.debug;
-    pluginConfig[0].disableHistoryService = config.disableHistoryService;
-    pluginConfig[0].preferSiriTemperature = config.preferSiriTemperature;
-    pluginConfig[0].homes = pluginConfig[0].homes.map(myHome => {
+    pluginConfig[activeIndex].name = config.name;
+    pluginConfig[activeIndex].debug = config.debug;
+    pluginConfig[activeIndex].disableHistoryService = config.disableHistoryService;
+    pluginConfig[activeIndex].preferSiriTemperature = config.preferSiriTemperature;
+    pluginConfig[activeIndex].homes = pluginConfig[activeIndex].homes.map(myHome => {
       if (myHome.name === config.homes.name) {
         myHome = config.homes;
       }
@@ -228,21 +259,21 @@ async function addNewDeviceToConfig(config, refresh, resync) {
 
   try {
 
-    for (const i in config[0].homes) {
+    for (const i in config[activeIndex].homes) {
 
       let found = false;
 
-      for (const j in pluginConfig[0].homes)
-        if (config[0].homes[i].name === pluginConfig[0].homes[j].name)
+      for (const j in pluginConfig[activeIndex].homes)
+        if (config[activeIndex].homes[i].name === pluginConfig[activeIndex].homes[j].name)
           found = true;
 
       if (!found) {
-        addDeviceToList(config[0].homes[i]);
-        homebridge.toast.success(config[0].homes[i].name + ' added to config!', 'Success');
+        addDeviceToList(config[activeIndex].homes[i]);
+        homebridge.toast.success(config[activeIndex].homes[i].name + ' added to config!', 'Success');
       } else if (refresh) {
-        homebridge.toast.success(config[0].homes[i].name + ' refreshed!', 'Success');
+        homebridge.toast.success(config[activeIndex].homes[i].name + ' refreshed!', 'Success');
       } else if (resync) {
-        homebridge.toast.success(config[0].homes[i].name + ' resynchronized!', 'Success');
+        homebridge.toast.success(config[activeIndex].homes[i].name + ' resynchronized!', 'Success');
       }
 
     }
@@ -270,7 +301,7 @@ async function removeDeviceFromConfig(name) {
   let foundIndex;
   let pluginConfigBkp = JSON.parse(JSON.stringify(pluginConfig));
 
-  pluginConfig[0].homes.forEach((home, index) => {
+  pluginConfig[activeIndex].homes.forEach((home, index) => {
     if (home.name === currentHome) {
       foundIndex = index;
     }
@@ -280,13 +311,13 @@ async function removeDeviceFromConfig(name) {
 
     try {
 
-      pluginConfig[0].homes.splice(foundIndex, 1);
+      pluginConfig[activeIndex].homes.splice(foundIndex, 1);
       removeDeviceFromList(currentHome);
 
-      if (!pluginConfig[0].homes.length) {
-        delete pluginConfig[0].debug;
-        delete pluginConfig[0].disableHistoryService;
-        delete pluginConfig[0].preferSiriTemperature;
+      if (!pluginConfig[activeIndex].homes.length) {
+        delete pluginConfig[activeIndex].debug;
+        delete pluginConfig[activeIndex].disableHistoryService;
+        delete pluginConfig[activeIndex].preferSiriTemperature;
       }
 
       await homebridge.updatePluginConfig(pluginConfig);
@@ -348,7 +379,7 @@ async function fetchDevices(auth, refresh, resync) {
       //refresh selected home
 
       //Home Informations
-      let home = config[0].homes.find(home => home && home.name === currentHome);
+      let home = config[activeIndex].homes.find(home => home && home.name === currentHome);
 
       if (!home)
         return homebridge.toast.error('Cannot refresh ' + currentHome + '. Not found in config!', 'Error');
@@ -371,26 +402,26 @@ async function fetchDevices(auth, refresh, resync) {
 
       const homeInfo = await homebridge.request('/exec', { dest: 'getHome', data: home.id });
 
-      for (let [i, home] of config[0].homes.entries()) {
+      for (let [i, home] of config[activeIndex].homes.entries()) {
 
-        if (config[0].homes[i].name === homeInfo.name) {
+        if (config[activeIndex].homes[i].name === homeInfo.name) {
 
-          config[0].homes[i].id = homeInfo.id;
-          config[0].homes[i].username = auth.username;
-          config[0].homes[i].tadoApiUrl = auth.tadoApiUrl;
-          config[0].homes[i].skipAuth = auth.skipAuth;
-          config[0].homes[i].temperatureUnit = homeInfo.temperatureUnit || 'CELSIUS';
-          config[0].homes[i].zones = config[0].homes[i].zones || [];
+          config[activeIndex].homes[i].id = homeInfo.id;
+          config[activeIndex].homes[i].username = auth.username;
+          config[activeIndex].homes[i].tadoApiUrl = auth.tadoApiUrl;
+          config[activeIndex].homes[i].skipAuth = auth.skipAuth;
+          config[activeIndex].homes[i].temperatureUnit = homeInfo.temperatureUnit || 'CELSIUS';
+          config[activeIndex].homes[i].zones = config[activeIndex].homes[i].zones || [];
 
           if (homeInfo.geolocation)
-            config[0].homes[i].geolocation = {
+            config[activeIndex].homes[i].geolocation = {
               longitude: homeInfo.geolocation.longitude.toString(),
               latitude: homeInfo.geolocation.latitude.toString()
             };
 
           //init devices for childLock
-          config[0].homes[i].extras = config[0].homes[i].extras || {};
-          config[0].homes[i].extras.childLockSwitches = config[0].homes[i].extras.childLockSwitches || [];
+          config[activeIndex].homes[i].extras = config[activeIndex].homes[i].extras || {};
+          config[activeIndex].homes[i].extras.childLockSwitches = config[activeIndex].homes[i].extras.childLockSwitches || [];
 
           let allFoundDevices = [];
 
@@ -401,15 +432,15 @@ async function fetchDevices(auth, refresh, resync) {
           //Mobile Devices Informations
           const mobileDevices = await homebridge.request('/exec', { dest: 'getMobileDevices', data: home.id });
 
-          if (!config[0].homes[i].presence)
-            config[0].homes[i].presence = {
+          if (!config[activeIndex].homes[i].presence)
+            config[activeIndex].homes[i].presence = {
               anyone: false,
               accTypeAnyone: 'OCCUPANCY',
               user: []
             };
 
           //Remove not registred devices
-          config[0].homes[i].presence.user.forEach((user, index) => {
+          config[activeIndex].homes[i].presence.user.forEach((user, index) => {
             let found = false;
             mobileDevices.forEach(foundUser => {
               if (foundUser.name === user.name) {
@@ -418,21 +449,21 @@ async function fetchDevices(auth, refresh, resync) {
             });
             if (!found) {
               homebridge.toast.info(user.name + ' removed from config!', auth.username);
-              config[0].homes[i].presence.user.splice(index, 1);
+              config[activeIndex].homes[i].presence.user.splice(index, 1);
             }
           });
 
           //Check for new registred devices
-          if (config[0].homes[i].presence.user.length) {
+          if (config[activeIndex].homes[i].presence.user.length) {
             for (const foundUser of mobileDevices) {
               let userIndex;
-              config[0].homes[i].presence.user.forEach((user, index) => {
+              config[activeIndex].homes[i].presence.user.forEach((user, index) => {
                 if (user.name === foundUser.name) {
                   userIndex = index;
                 }
               });
               if (userIndex === undefined) {
-                config[0].homes[i].presence.user.push({
+                config[activeIndex].homes[i].presence.user.push({
                   active: false,
                   name: foundUser.name,
                   accType: 'OCCUPANCY'
@@ -440,7 +471,7 @@ async function fetchDevices(auth, refresh, resync) {
               }
             }
           } else {
-            config[0].homes[i].presence.user = mobileDevices.map(user => {
+            config[activeIndex].homes[i].presence.user = mobileDevices.map(user => {
               return {
                 active: false,
                 name: user.name,
@@ -457,7 +488,7 @@ async function fetchDevices(auth, refresh, resync) {
           const zones = await homebridge.request('/exec', { dest: 'getZones', data: home.id });
 
           //Remove not available zones
-          config[0].homes[i].zones.forEach((zone, index) => {
+          config[activeIndex].homes[i].zones.forEach((zone, index) => {
             let found = false;
             zones.forEach(foundZone => {
               if (foundZone.name === zone.name) {
@@ -466,12 +497,12 @@ async function fetchDevices(auth, refresh, resync) {
             });
             if (!found) {
               homebridge.toast.info(zone.name + ' removed from config!', auth.username);
-              config[0].homes[i].zones.splice(index, 1);
+              config[activeIndex].homes[i].zones.splice(index, 1);
             }
           });
 
           //Check for new zones or refresh exist one
-          if (config[0].homes[i].zones.length) {
+          if (config[activeIndex].homes[i].zones.length) {
             for (const foundZone of zones) {
 
               const capabilities = await homebridge.request('/exec', { dest: 'getZoneCapabilities', data: [home.id, foundZone.id] }) || {};
@@ -516,19 +547,19 @@ async function fetchDevices(auth, refresh, resync) {
                 });
 
               let zoneIndex;
-              config[0].homes[i].zones.forEach((zone, index) => {
+              config[activeIndex].homes[i].zones.forEach((zone, index) => {
                 if (zone.name === foundZone.name) {
                   zoneIndex = index;
                 }
               });
               if (zoneIndex !== undefined) {
-                config[0].homes[i].zones[zoneIndex].id = foundZone.id;
-                config[0].homes[i].zones[zoneIndex].type = foundZone.type;
-                config[0].homes[i].zones[zoneIndex].minValue = minTempValue;
-                config[0].homes[i].zones[zoneIndex].maxValue = maxTempValue;
-                config[0].homes[i].zones[zoneIndex].minStep = minTempStep;
+                config[activeIndex].homes[i].zones[zoneIndex].id = foundZone.id;
+                config[activeIndex].homes[i].zones[zoneIndex].type = foundZone.type;
+                config[activeIndex].homes[i].zones[zoneIndex].minValue = minTempValue;
+                config[activeIndex].homes[i].zones[zoneIndex].maxValue = maxTempValue;
+                config[activeIndex].homes[i].zones[zoneIndex].minStep = minTempStep;
               } else {
-                config[0].homes[i].zones.push({
+                config[activeIndex].homes[i].zones.push({
                   active: true,
                   id: foundZone.id,
                   name: foundZone.name,
@@ -595,7 +626,7 @@ async function fetchDevices(auth, refresh, resync) {
                   });
                 });
 
-              config[0].homes[i].zones.push({
+              config[activeIndex].homes[i].zones.push({
                 active: true,
                 id: zone.id,
                 name: zone.name,
@@ -621,7 +652,7 @@ async function fetchDevices(auth, refresh, resync) {
           }
 
           //remove non existing childLockSwitches
-          config[0].homes[i].extras.childLockSwitches.forEach((childLockSwitch, index) => {
+          config[activeIndex].homes[i].extras.childLockSwitches.forEach((childLockSwitch, index) => {
             let found = false;
             allFoundDevices.forEach(foundDevice => {
               if (foundDevice.serialNumber === childLockSwitch.serialNumber) {
@@ -630,21 +661,21 @@ async function fetchDevices(auth, refresh, resync) {
             });
             if (!found) {
               homebridge.toast.info(childLockSwitch.name + ' removed from config!', auth.username);
-              config[0].homes[i].extras.childLockSwitches.splice(index, 1);
+              config[activeIndex].homes[i].extras.childLockSwitches.splice(index, 1);
             }
           });
 
           //check for new childLockSwitches
-          if (config[0].homes[i].extras.childLockSwitches.length) {
+          if (config[activeIndex].homes[i].extras.childLockSwitches.length) {
             for (const foundDevice of allFoundDevices) {
               let found = false;
-              config[0].homes[i].extras.childLockSwitches.forEach(childLockSwitch => {
+              config[activeIndex].homes[i].extras.childLockSwitches.forEach(childLockSwitch => {
                 if (childLockSwitch.serialNumber === foundDevice.serialNumber) {
                   found = true;
                 }
               });
               if (!found) {
-                config[0].homes[i].extras.childLockSwitches.push({
+                config[activeIndex].homes[i].extras.childLockSwitches.push({
                   active: false,
                   name: foundDevice.name,
                   serialNumber: foundDevice.serialNumber
@@ -652,7 +683,7 @@ async function fetchDevices(auth, refresh, resync) {
               }
             }
           } else {
-            config[0].homes[i].extras.childLockSwitches = allFoundDevices.map(device => {
+            config[activeIndex].homes[i].extras.childLockSwitches = allFoundDevices.map(device => {
               return {
                 active: false,
                 name: device.name,
@@ -671,7 +702,7 @@ async function fetchDevices(auth, refresh, resync) {
 
       const availableHomesInApis = [];
 
-      for (let home of config[0].homes) {
+      for (let home of config[activeIndex].homes) {
 
         if (home.name && home.username) {
 
@@ -710,7 +741,7 @@ async function fetchDevices(auth, refresh, resync) {
       let removedHomes = 0;
 
       //remove non exist homes from config that doesnt exist in api
-      for (let [i, home] of config[0].homes.entries()) {
+      for (let [i, home] of config[activeIndex].homes.entries()) {
 
         if (home.name && home.username) {
 
@@ -734,7 +765,7 @@ async function fetchDevices(auth, refresh, resync) {
             homebridge.toast.info(home.name + ' removed from config!', home.username);
 
             await removeDeviceFromConfig(home.name);
-            config[0].homes.splice(i, 1);
+            config[activeIndex].homes.splice(i, 1);
 
             removedHomes += 1;
 
@@ -754,7 +785,7 @@ async function fetchDevices(auth, refresh, resync) {
       await TIMEOUT(2000);
 
       //refresh existing homes
-      for (let [i, home] of config[0].homes.entries()) {
+      for (let [i, home] of config[activeIndex].homes.entries()) {
 
         if (home.name && home.username) {
 
@@ -780,37 +811,37 @@ async function fetchDevices(auth, refresh, resync) {
 
             const homeInfo = await homebridge.request('/exec', { dest: 'getHome', data: home.id });
 
-            config[0].homes[i].id = homeInfo.id;
-            config[0].homes[i].username = foundHome.username;
-            config[0].homes[i].tadoApiUrl = foundHome.tadoApiUrl;
-            config[0].homes[i].skipAuth = foundHome.skipAuth;
-            config[0].homes[i].temperatureUnit = homeInfo.temperatureUnit || 'CELSIUS';
-            config[0].homes[i].zones = config[0].homes[i].zones || [];
+            config[activeIndex].homes[i].id = homeInfo.id;
+            config[activeIndex].homes[i].username = foundHome.username;
+            config[activeIndex].homes[i].tadoApiUrl = foundHome.tadoApiUrl;
+            config[activeIndex].homes[i].skipAuth = foundHome.skipAuth;
+            config[activeIndex].homes[i].temperatureUnit = homeInfo.temperatureUnit || 'CELSIUS';
+            config[activeIndex].homes[i].zones = config[activeIndex].homes[i].zones || [];
 
             if (homeInfo.geolocation)
-              config[0].homes[i].geolocation = {
+              config[activeIndex].homes[i].geolocation = {
                 longitude: homeInfo.geolocation.longitude.toString(),
                 latitude: homeInfo.geolocation.latitude.toString()
               };
 
             //init devices for childLock
-            config[0].homes[i].extras = config[0].homes[i].extras || {};
-            config[0].homes[i].extras.childLockSwitches = config[0].homes[i].extras.childLockSwitches || [];
+            config[activeIndex].homes[i].extras = config[activeIndex].homes[i].extras || {};
+            config[activeIndex].homes[i].extras.childLockSwitches = config[activeIndex].homes[i].extras.childLockSwitches || [];
 
             let allFoundDevices = [];
 
             //Mobile Devices Informations
             const mobileDevices = await homebridge.request('/exec', { dest: 'getMobileDevices', data: home.id });
 
-            if (!config[0].homes[i].presence)
-              config[0].homes[i].presence = {
+            if (!config[activeIndex].homes[i].presence)
+              config[activeIndex].homes[i].presence = {
                 anyone: false,
                 accTypeAnyone: 'OCCUPANCY',
                 user: []
               };
 
             //Remove not registred devices
-            config[0].homes[i].presence.user.forEach((user, index) => {
+            config[activeIndex].homes[i].presence.user.forEach((user, index) => {
               let found = false;
               mobileDevices.forEach(foundUser => {
                 if (foundUser.name === user.name) {
@@ -819,21 +850,21 @@ async function fetchDevices(auth, refresh, resync) {
               });
               if (!found) {
                 homebridge.toast.info(user.name + ' removed from config!', home.username);
-                config[0].homes[i].presence.user.splice(index, 1);
+                config[activeIndex].homes[i].presence.user.splice(index, 1);
               }
             });
 
             //Check for new registred devices
-            if (config[0].homes[i].presence.user.length) {
+            if (config[activeIndex].homes[i].presence.user.length) {
               for (const foundUser of mobileDevices) {
                 let userIndex;
-                config[0].homes[i].presence.user.forEach((user, index) => {
+                config[activeIndex].homes[i].presence.user.forEach((user, index) => {
                   if (user.name === foundUser.name) {
                     userIndex = index;
                   }
                 });
                 if (userIndex === undefined) {
-                  config[0].homes[i].presence.user.push({
+                  config[activeIndex].homes[i].presence.user.push({
                     active: false,
                     name: foundUser.name,
                     accType: 'OCCUPANCY'
@@ -841,7 +872,7 @@ async function fetchDevices(auth, refresh, resync) {
                 }
               }
             } else {
-              config[0].homes[i].presence.user = mobileDevices.map(user => {
+              config[activeIndex].homes[i].presence.user = mobileDevices.map(user => {
                 return {
                   active: false,
                   name: user.name,
@@ -854,7 +885,7 @@ async function fetchDevices(auth, refresh, resync) {
             const zones = await homebridge.request('/exec', { dest: 'getZones', data: home.id });
 
             //Remove not available zones
-            config[0].homes[i].zones.forEach((zone, index) => {
+            config[activeIndex].homes[i].zones.forEach((zone, index) => {
               let found = false;
               zones.forEach(foundZone => {
                 if (foundZone.name === zone.name) {
@@ -863,12 +894,12 @@ async function fetchDevices(auth, refresh, resync) {
               });
               if (!found) {
                 homebridge.toast.info(zone.name + ' removed from config!', home.username);
-                config[0].homes[i].zones.splice(index, 1);
+                config[activeIndex].homes[i].zones.splice(index, 1);
               }
             });
 
             //Check for new zones or refresh exist one
-            if (config[0].homes[i].zones.length) {
+            if (config[activeIndex].homes[i].zones.length) {
               for (const foundZone of zones) {
 
                 const capabilities = await homebridge.request('/exec', { dest: 'getZoneCapabilities', data: [home.id, foundZone.id] }) || {};
@@ -913,19 +944,19 @@ async function fetchDevices(auth, refresh, resync) {
                   });
 
                 let zoneIndex;
-                config[0].homes[i].zones.forEach((zone, index) => {
+                config[activeIndex].homes[i].zones.forEach((zone, index) => {
                   if (zone.name === foundZone.name) {
                     zoneIndex = index;
                   }
                 });
                 if (zoneIndex !== undefined) {
-                  config[0].homes[i].zones[zoneIndex].id = foundZone.id;
-                  config[0].homes[i].zones[zoneIndex].type = foundZone.type;
-                  config[0].homes[i].zones[zoneIndex].minValue = minTempValue;
-                  config[0].homes[i].zones[zoneIndex].maxValue = maxTempValue;
-                  config[0].homes[i].zones[zoneIndex].minStep = minTempStep;
+                  config[activeIndex].homes[i].zones[zoneIndex].id = foundZone.id;
+                  config[activeIndex].homes[i].zones[zoneIndex].type = foundZone.type;
+                  config[activeIndex].homes[i].zones[zoneIndex].minValue = minTempValue;
+                  config[activeIndex].homes[i].zones[zoneIndex].maxValue = maxTempValue;
+                  config[activeIndex].homes[i].zones[zoneIndex].minStep = minTempStep;
                 } else {
-                  config[0].homes[i].zones.push({
+                  config[activeIndex].homes[i].zones.push({
                     active: true,
                     id: foundZone.id,
                     name: foundZone.name,
@@ -993,7 +1024,7 @@ async function fetchDevices(auth, refresh, resync) {
                       });
                   });
 
-                config[0].homes[i].zones.push({
+                config[activeIndex].homes[i].zones.push({
                   active: true,
                   id: zone.id,
                   name: zone.name,
@@ -1019,7 +1050,7 @@ async function fetchDevices(auth, refresh, resync) {
             }
 
             //remove non existing childLockSwitches
-            config[0].homes[i].extras.childLockSwitches.forEach((childLockSwitch, index) => {
+            config[activeIndex].homes[i].extras.childLockSwitches.forEach((childLockSwitch, index) => {
               let found = false;
               allFoundDevices.forEach(foundDevice => {
                 if (foundDevice.serialNumber === childLockSwitch.serialNumber) {
@@ -1028,21 +1059,21 @@ async function fetchDevices(auth, refresh, resync) {
               });
               if (!found) {
                 homebridge.toast.info(childLockSwitch.serialNumber + ' removed from config!', home.username);
-                config[0].homes[i].extras.childLockSwitches.splice(index, 1);
+                config[activeIndex].homes[i].extras.childLockSwitches.splice(index, 1);
               }
             });
 
             //check for new childLockSwitches
-            if (config[0].homes[i].extras.childLockSwitches.length) {
+            if (config[activeIndex].homes[i].extras.childLockSwitches.length) {
               for (const foundDevice of allFoundDevices) {
                 let found = false;
-                config[0].homes[i].extras.childLockSwitches.forEach(childLockSwitch => {
+                config[activeIndex].homes[i].extras.childLockSwitches.forEach(childLockSwitch => {
                   if (childLockSwitch.serialNumber === foundDevice.serialNumber) {
                     found = true;
                   }
                 });
                 if (!found) {
-                  config[0].homes[i].extras.childLockSwitches.push({
+                  config[activeIndex].homes[i].extras.childLockSwitches.push({
                     active: false,
                     name: foundDevice.name,
                     serialNumber: foundDevice.serialNumber
@@ -1050,7 +1081,7 @@ async function fetchDevices(auth, refresh, resync) {
                 }
               }
             } else {
-              config[0].homes[i].extras.childLockSwitches = allFoundDevices.map(device => {
+              config[activeIndex].homes[i].extras.childLockSwitches = allFoundDevices.map(device => {
                 return {
                   active: false,
                   name: device.name,
@@ -1083,7 +1114,7 @@ async function fetchDevices(auth, refresh, resync) {
 
         let found = false;
 
-        config[0].homes.forEach(home => {
+        config[activeIndex].homes.forEach(home => {
           if (home.name === foundHome.name || home.id === foundHome.id)
             found = true;
         });
@@ -1227,7 +1258,7 @@ async function fetchDevices(auth, refresh, resync) {
 
           }
 
-          config[0].homes.push(homeConfig);
+          config[activeIndex].homes.push(homeConfig);
 
           await TIMEOUT(2000);
 
@@ -1253,7 +1284,7 @@ async function fetchDevices(auth, refresh, resync) {
       for (const foundHome of me.homes) {
 
         let homeIndex;
-        config[0].homes.forEach((home, index) => {
+        config[activeIndex].homes.forEach((home, index) => {
           if (home.name === foundHome.name || home.id === foundHome.id) {
             homeIndex = index;
           }
@@ -1400,7 +1431,7 @@ async function fetchDevices(auth, refresh, resync) {
           }
 
 
-          config[0].homes.push(homeConfig);
+          config[activeIndex].homes.push(homeConfig);
 
         }
 
@@ -1459,12 +1490,18 @@ async function fetchDevices(auth, refresh, resync) {
 
     } else {
 
-      if (!pluginConfig[0].homes || (pluginConfig[0].homes && !pluginConfig[0].homes.length)) {
-        pluginConfig[0].homes = [];
+      // When the user runs this plugin as multiple platform entries (typical
+      // with child bridges), let them pick which one this UI session will
+      // configure. Otherwise every "+" still goes to platforms[0] and the
+      // other entries silently stay empty.
+      await chooseActiveBridge();
+
+      if (!pluginConfig[activeIndex].homes || (pluginConfig[activeIndex].homes && !pluginConfig[activeIndex].homes.length)) {
+        pluginConfig[activeIndex].homes = [];
         return transPage(false, $('#notConfigured'));
       }
 
-      pluginConfig[0].homes.forEach(home => {
+      pluginConfig[activeIndex].homes.forEach(home => {
         $('#deviceSelect').append('<option value="' + home.name + '">' + home.name + ' &lt;' + home.username + '&gt;</option>');
       });
 
@@ -1561,7 +1598,7 @@ $('#editDevice').on('click', () => {
   resetUI();
 
   currentHome = $('#deviceSelect option:selected').val();
-  let home = pluginConfig[0].homes.find(home => home.name === currentHome);
+  let home = pluginConfig[activeIndex].homes.find(home => home.name === currentHome);
 
   if (!home)
     return homebridge.toast.error('Can not find selected home!', 'Error');
@@ -1578,7 +1615,7 @@ $('#refreshDevice').on('click', async () => {
 
     resetSchema();
 
-    let home = pluginConfig[0].homes.find(home => home.name === currentHome);
+    let home = pluginConfig[activeIndex].homes.find(home => home.name === currentHome);
 
     if (!home)
       return homebridge.toast.error('Can not find home in config!', 'Error');
@@ -1613,7 +1650,7 @@ $('#removeDevice').on('click', async () => {
 
     resetUI();
 
-    transPage(false, pluginConfig[0].homes.length ? $('#isConfigured') : $('#notConfigured'));
+    transPage(false, pluginConfig[activeIndex].homes.length ? $('#isConfigured') : $('#notConfigured'));
 
   } catch (err) {
 
