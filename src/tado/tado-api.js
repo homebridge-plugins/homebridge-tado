@@ -31,7 +31,6 @@ export default class Tado {
     this._tadoApiClientId = tado_client_id;
     this._tadoTokenPromise = undefined;
     this._tadoAuthenticationCallback = undefined;
-    this._identityVerified = false;
     this._counterActivated = counterActivated?.toString() === "true";
     this._counterInitPromise = this._initCounter();
     Logger.debug("API successfull initialized", this.name);
@@ -189,17 +188,6 @@ export default class Tado {
       this._tadoBearerToken = { access_token: undefined, refresh_token: undefined, timestamp: 0 };
       return this._authenticateUser();
     }
-    // Once-per-process identity check covers token files that were written by
-    // older plugin versions when tado.com was logged in as the wrong account.
-    if (!this._identityVerified) {
-      try {
-        await this._verifyAuthenticatedIdentity();
-      } catch (error) {
-        this._tadoBearerToken = { access_token: undefined, refresh_token: undefined, timestamp: 0 };
-        Logger.warn(`Existing token failed identity check, re-authenticating: ${error.message}`);
-        return this._authenticateUser();
-      }
-    }
     await writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
   }
 
@@ -269,10 +257,7 @@ export default class Tado {
   // poisons a token file. Uses got directly because apiCall → getToken would
   // re-enter the in-flight token promise and deadlock.
   async _verifyAuthenticatedIdentity() {
-    if (!this.username) {
-      this._identityVerified = true;
-      return;
-    }
+    if (!this.username) return;
     const access_token = this._tadoBearerToken?.access_token;
     if (!access_token) throw new Error('No access token available for identity verification.');
     const url = `${this.tadoApiUrl}/api/v2/me`;
@@ -298,7 +283,6 @@ export default class Tado {
         `Sign out of tado.com (or use a private/incognito window) and try again.`
       );
     }
-    this._identityVerified = true;
   }
 
   async _retrieveTokenFromExternalFile() {
