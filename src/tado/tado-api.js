@@ -204,8 +204,7 @@ export default class Tado {
     const { device_code, verification_uri_complete } = authResponse.body;
     if (!device_code) throw new Error("Failed to retrieve device code.");
     Logger.info(
-      `Open the following URL in a private/incognito window — or after logging out of tado.com — and sign in as "${this.username}". ` +
-      `If you are already signed in to tado.com as a different account, the "Submit" button will silently confirm THAT account, not "${this.username}". ` +
+      `Open the following URL and sign in as "${this.username}" to authorize the plugin (tip: if your browser is signed in to tado.com with a different account, use a private/incognito window). ` +
       `URL: ${verification_uri_complete}`
     );
     if (this._tadoAuthenticationCallback) this._tadoAuthenticationCallback(verification_uri_complete);

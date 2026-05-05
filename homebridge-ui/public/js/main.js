@@ -356,14 +356,12 @@ async function fetchDevices(auth, refresh, resync) {
       const instructionsURL = await homebridge.request('/exec', { dest: 'fullAuthentication' });
       if (instructionsURL && instructionsURL !== "") {
         $("#fetchDevices #authenticationInstructions").html(
-          `<strong style="color:#c00;">Important:</strong> open this URL in a <strong>private / incognito window</strong>` +
-          ` (or sign out of <a href="https://app.tado.com" target="_blank">app.tado.com</a> first).` +
-          `<br>If your browser is still signed in as a different tado° account, clicking "Submit" will silently confirm THAT account — not <strong>${params.username}</strong>.` +
-          `<br><br>Sign in as <strong>${params.username}</strong> and click "Submit":` +
-          `<br><a href="${instructionsURL}" target="_blank" rel="noopener noreferrer">${instructionsURL}</a>`
+          `Sign in as <strong>${params.username}</strong> and click "Submit":` +
+          `<br><a href="${instructionsURL}" target="_blank" rel="noopener noreferrer">${instructionsURL}</a>` +
+          `<br><span style="font-size:smaller;color:#666;">Tip: if your browser is signed in to tado.com with a different account, open the link in a private/incognito window.</span>`
         );
         $("#fetchDevices #authenticationInstructions").css("display", "block");
-        homebridge.toast.info("Open the link in a private/incognito window and confirm your login.");
+        homebridge.toast.info("Open the link and confirm your login.");
         const authenticationSuccessful = await homebridge.request('/exec', { dest: 'waitForAuthentication' });
         $("#fetchDevices #authenticationInstructions").html("");
         $("#fetchDevices #authenticationInstructions").css("display", "none");
