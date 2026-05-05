@@ -1,6 +1,5 @@
 import Logger from '../helper/logger.js';
 import got from 'got';
-import { createHash } from 'crypto';
 import { join } from 'path';
 import { access, readFile, writeFile } from 'fs/promises';
 
@@ -8,12 +7,13 @@ const tado_url = "https://my.tado.com";
 const tado_auth_url = "https://login.tado.com/oauth2";
 const tado_client_id = "1bb50063-6b0c-4d11-bd99-387f4a91cc46";
 
-// Stable, collision-resistant per-username token-file id. Existing users from
-// older versions will need to authenticate once after upgrade so a fresh token
-// file under the new name is created — a one-time cost in exchange for safely
-// distinct files when configuring multiple accounts.
 function _getSimpleHash(str) {
-  return createHash('sha256').update(String(str)).digest('hex').slice(0, 16);
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+  }
+  return (hash >>> 0).toString(36).padStart(7, '0');
 }
 
 export default class Tado {
