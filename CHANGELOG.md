@@ -1,5 +1,11 @@
 # Changelog
 
+# v9.1.0 - 2026-05-06
+- Add support for multiple bridges in Config UI
+- Validate tado account after authentication
+- Improve browser authentication instructions
+- Update got
+
 ## v9.0.0 - 2026-05-03
 - Require Node.js 22
 - Update dependencies
