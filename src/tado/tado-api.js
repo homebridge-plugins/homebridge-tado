@@ -145,7 +145,6 @@ export default class Tado {
       await access(this._tadoInternalTokenFilePath);
       const refresh_token = await this._retrieveRefreshTokenFromInternalFile();
       return this._refreshToken(refresh_token);
-
     } catch (_err) {
       return this._authenticateUser();
     }
@@ -169,7 +168,6 @@ export default class Tado {
   }
 
   async _refreshToken(old_refresh_token) {
-    let access_token, refresh_token;
     try {
       const response = await got.post(`${tado_auth_url}/token`, {
         form: {
@@ -180,15 +178,14 @@ export default class Tado {
         responseType: "json"
       });
       await this._increaseCounter();
-      ({ access_token, refresh_token } = response.body);
+      const { access_token, refresh_token } = response.body;
       if (!access_token || !refresh_token) throw new Error("Empty access/refresh token.");
+      await writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
       this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
     } catch (error) {
       Logger.warn(`Error while refreshing token: ${error.message || JSON.stringify(error)}`);
-      this._tadoBearerToken = { access_token: undefined, refresh_token: undefined, timestamp: 0 };
       return this._authenticateUser();
     }
-    await writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
   }
 
   async _authenticateUser() {
@@ -228,17 +225,9 @@ export default class Tado {
       if (tokenResponse?.body) {
         const { access_token, refresh_token } = tokenResponse.body;
         if (access_token && refresh_token) {
-          this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
-          try {
-            await this._verifyAuthenticatedIdentity();
-          } catch (error) {
-            // Clear the cached token before propagating, otherwise the 9-min
-            // cache in _getToken would happily hand the wrong-account token
-            // back to subsequent callers.
-            this._tadoBearerToken = { access_token: undefined, refresh_token: undefined, timestamp: 0 };
-            throw error;
-          }
+          await this._verifyAuthenticatedIdentity();
           await writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
+          this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
           Logger.info("Authentication successful!");
           return;
         }
@@ -248,13 +237,15 @@ export default class Tado {
     throw new Error(`Failed to authenticate after ${maxRetries} attempts.`);
   }
 
-  // Tado's device-code "Submit" page silently confirms whichever account is
-  // already signed in to tado.com, so a user trying to authenticate account B
-  // can end up granting tokens for account A without noticing. Verify the
-  // identity that actually came back matches the one we asked for, and abort
-  // if it doesn't — better a loud failure than a silent account mix-up that
-  // poisons a token file. Uses got directly because apiCall → getToken would
-  // re-enter the in-flight token promise and deadlock.
+  /* 
+   * Tado's device-code "Submit" page silently confirms whichever account is
+   * already signed in to tado.com, so a user trying to authenticate account B
+   * can end up granting tokens for account A without noticing. Verify the
+   * identity that actually came back matches the one we asked for, and abort
+   * if it doesn't - better a loud failure than a silent account mix-up that
+   * poisons a token file. Uses got directly because apiCall -> getToken would
+   * re-enter the in-flight token promise and deadlock.
+   */
   async _verifyAuthenticatedIdentity() {
     if (!this.username) return;
     const access_token = this._tadoBearerToken?.access_token;
