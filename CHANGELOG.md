@@ -1,5 +1,8 @@
 # Changelog
 
+# v9.1.1 - 2026-05-09
+- Fix: Missing access token for identity verification (#198)
+
 # v9.1.0 - 2026-05-06
 - Add support for multiple bridges in Config UI
 - Validate tado account after authentication

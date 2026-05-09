@@ -225,7 +225,7 @@ export default class Tado {
       if (tokenResponse?.body) {
         const { access_token, refresh_token } = tokenResponse.body;
         if (access_token && refresh_token) {
-          await this._verifyAuthenticatedIdentity();
+          await this._verifyAuthenticatedIdentity(access_token);
           await writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
           this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
           Logger.info("Authentication successful!");
@@ -246,9 +246,8 @@ export default class Tado {
    * poisons a token file. Uses got directly because apiCall -> getToken would
    * re-enter the in-flight token promise and deadlock.
    */
-  async _verifyAuthenticatedIdentity() {
+  async _verifyAuthenticatedIdentity(access_token) {
     if (!this.username) return;
-    const access_token = this._tadoBearerToken?.access_token;
     if (!access_token) throw new Error('No access token available for identity verification.');
     const url = `${this.tadoApiUrl}/api/v2/me`;
     let me;

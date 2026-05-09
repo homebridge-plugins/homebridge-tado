@@ -1,6 +1,6 @@
 {
   "name": "@homebridge-plugins/homebridge-tado",
-  "version": "9.1.0",
+  "version": "9.1.1",
   "description": "Homebridge plugin for controlling tado° devices.",
   "main": "index.js",
   "scripts": {
@@ -36,7 +36,7 @@
     "@homebridge/plugin-ui-utils": "^2.2.3",
     "fakegato-history": "^0.6.7",
     "form-data": "^4.0.5",
-    "fs-extra": "^11.3.4",
+    "fs-extra": "^11.3.5",
     "got": "^15.0.5",
     "moment": "^2.30.1"
   },
