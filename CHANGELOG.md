@@ -1,5 +1,8 @@
 # Changelog
 
+# v9.1.2 - 2026-05-23
+- Update dependencies due to vulnerability
+
 # v9.1.1 - 2026-05-09
 - Fix: Missing access token for identity verification (#198)
 
