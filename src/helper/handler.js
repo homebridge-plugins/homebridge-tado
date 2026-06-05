@@ -1196,7 +1196,9 @@ export default (api, accessories, config, tado, telegram) => {
                 } else {
                   // Non-AC zones (like boiler/hot water)
                   service.getCharacteristic(characteristicTargetTempHeating).updateValue(targetTemp);
-                  service.getCharacteristic(characteristicTargetTempCooling).updateValue(targetTemp);
+                  if (service.testCharacteristic(characteristicTargetTempCooling)) {
+                    service.getCharacteristic(characteristicTargetTempCooling).updateValue(targetTemp);
+                  }
                 }
               }
 
