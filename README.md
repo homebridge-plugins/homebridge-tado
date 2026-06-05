@@ -187,7 +187,7 @@ You can also adjust the minimum temperature step ``"minStep"``, minimum temperat
         "modeTimer": 30,
         "minValue": 5,
         "maxValue": 25,
-        "minStep": "0.5",
+        "minStep": 0.5,
         "easyMode": false,
         "noBattery": false
       }
@@ -265,7 +265,7 @@ You can also adjust the minimum temperature step `"minStep"`, minimum temperatur
         "autoOffDelay": false,
         "separateTemperature": false,
         "separateHumidity": true,
-        "minStep": "1",
+        "minStep": 1,
         "noBattery": false
       }
       ...
@@ -308,7 +308,7 @@ You can also adjust the minimum temperature step ``"minStep"``, minimum temperat
         "modeTimer": 30,
         "minValue": 30,
         "maxValue": 65,
-        "minStep": "1",
+        "minStep": 1,
         "separateTemperature": true,
         "boilerTempSupport": false,
         "accTypeBoiler": "SWITCH"
