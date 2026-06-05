@@ -378,7 +378,7 @@
                     "type": "boolean",
                     "description": "If enabled, the humidity sensor will be shown as extra accessory.",
                     "condition": {
-                      "functionBody": "try { return model.homes[arrayIndices[0]].zones[arrayIndices[1]].type === 'HEATING' } catch(e){ return false }"
+                      "functionBody": "try { return ['HEATING','AIR_CONDITIONING'].includes(model.homes[arrayIndices[0]].zones[arrayIndices[1]].type) } catch(e){ return false }"
                     }
                   },
                   "minStep": {
@@ -441,7 +441,7 @@
                     "title": "Simple Target Mode",
                     "type": "boolean",
                     "condition": {
-                      "functionBody": "try { return model.homes[arrayIndices[0]].zones[arrayIndices[1]].type === 'HEATING' } catch(e){ return false }"
+                      "functionBody": "try { return ['HEATING','AIR_CONDITIONING'].includes(model.homes[arrayIndices[0]].zones[arrayIndices[1]].type) } catch(e){ return false }"
                     },
                     "description": "If enabled, only 'ON | OFF' target modes are visible for the thermostat."
                   },
@@ -449,7 +449,7 @@
                     "title": "No Battery",
                     "type": "boolean",
                     "condition": {
-                      "functionBody": "try { return model.homes[arrayIndices[0]].zones[arrayIndices[1]].type === 'HEATING' } catch(e){ return false }"
+                      "functionBody": "try { return ['HEATING','AIR_CONDITIONING'].includes(model.homes[arrayIndices[0]].zones[arrayIndices[1]].type) } catch(e){ return false }"
                     },
                     "description": "If enabled, the battery indicator will be removed from Apple Home."
                   },
@@ -692,7 +692,7 @@
                       "expanded": false,
                       "type": "section",
                       "condition": {
-                        "functionBody": "try { return model.homes[arrayIndices[0]].zones[arrayIndices[1]].type === 'HEATING' } catch(e){ return false }"
+                        "functionBody": "try { return ['HEATING','AIR_CONDITIONING'].includes(model.homes[arrayIndices[0]].zones[arrayIndices[1]].type) } catch(e){ return false }"
                       },
                       "items": [
                         "homes[].zones[].openWindowSensor",
@@ -717,7 +717,7 @@
                       "expanded": false,
                       "type": "section",
                       "condition": {
-                        "functionBody": "try { return model.homes[arrayIndices[0]].zones[arrayIndices[1]].type === 'HEATING' } catch(e){ return false }"
+                        "functionBody": "try { return ['HEATING','AIR_CONDITIONING'].includes(model.homes[arrayIndices[0]].zones[arrayIndices[1]].type) } catch(e){ return false }"
                       },
                       "items": [
                         "homes[].zones[].delaySwitch",
