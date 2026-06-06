@@ -1,5 +1,8 @@
 # Changelog
 
+# v9.2.1 - 2026-06-06
+- Fix: HOT_WATER zones configured with `accTypeBoiler: "FAUCET"` and `boilerTempSupport: true` now correctly create a Faucet accessory instead of a HeaterCooler service (#169)
+
 # v9.2.0 - 2026-06-05
 - Fix: Incorrect warning "CoolingThresholdTemperature exceeded maximum of 35" for HOT_WATER zones with `boilerTempSupport: true` (#169)
 - Fix: Config UI: show AC-specific fields for AIR_CONDITIONING zones (#173)

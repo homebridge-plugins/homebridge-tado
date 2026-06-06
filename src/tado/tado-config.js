@@ -582,7 +582,9 @@ export default {
                             ? 'zone-faucet'
                             : 'zone-switch';
 
-                    config.subtype = zone.boilerTempSupport ? 'zone-heatercooler-boiler' : config.subtype;
+                    config.subtype = zone.boilerTempSupport && zone.accTypeBoiler !== 'FAUCET'
+                      ? 'zone-heatercooler-boiler'
+                      : config.subtype;
 
                     config.zoneId = zone.id;
                     config.type = zone.type;
