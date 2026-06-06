@@ -167,9 +167,21 @@ export default class HeaterCoolerAccessory {
           ? 25
           : 77;
 
-    minValue = this.accessory.context.config.minValue < maxValue ? this.accessory.context.config.minValue : minValue;
-
-    maxValue = this.accessory.context.config.maxValue > minValue ? this.accessory.context.config.maxValue : maxValue;
+    //only override temperature limits if config value is explicitly and correctly set
+    if (
+      this.accessory.context.config.minValue != null &&
+      this.accessory.context.config.minValue > 0 &&
+      this.accessory.context.config.minValue < maxValue
+    ) {
+      minValue = this.accessory.context.config.minValue;
+    }
+    if (
+      this.accessory.context.config.maxValue != null &&
+      this.accessory.context.config.maxValue > 0 &&
+      this.accessory.context.config.maxValue > minValue
+    ) {
+      maxValue = this.accessory.context.config.maxValue;
+    }
 
     console.log('Before MINSTEP: ' + this.accessory.context.config.minStep, this.accessory.displayName);
 
