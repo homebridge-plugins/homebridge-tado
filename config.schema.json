@@ -682,7 +682,12 @@
                       },
                       "items": [
                         "homes[].zones[].boilerTempSupport",
-                        "homes[].zones[].accTypeBoiler"
+                        {
+                          "key": "homes[].zones[].accTypeBoiler",
+                          "condition": {
+                            "functionBody": "try { return !model.homes[arrayIndices[0]].zones[arrayIndices[1]].boilerTempSupport } catch(e){ return false }"
+                          }
+                        }
                       ]
                     },
                     {
