@@ -2,7 +2,7 @@ import { hrtime } from "process";
 import Logger from '../helper/logger.js';
 
 export class TadoUpdateBuffer {
-  constructor(sendUpdateFn, preferSiriTemperature = false) {
+  constructor(sendUpdateFn, preferSiriTemperature = false, defaultTemperature = 20, minTemperature = 5, maxTemperature = null, clampToRange = false) {
     this.preferSiriTemperature = !!preferSiriTemperature;
     this.sendUpdateFn = sendUpdateFn;
     this.delay = 400;
@@ -10,7 +10,12 @@ export class TadoUpdateBuffer {
     this.pendingState = null;
     this.pendingTemperature = null;
     this.lastUpdateTime = null;
-    this.lastTemperature = 20;
+    this.minTemperature = Number.isFinite(Number(minTemperature)) ? Number(minTemperature) : 5;
+    this.maxTemperature = Number.isFinite(Number(maxTemperature)) ? Number(maxTemperature) : null;
+    this.clampToRange = !!clampToRange;
+
+    const normalizedDefaultTemperature = this._normalizeTemperature(defaultTemperature);
+    this.lastTemperature = normalizedDefaultTemperature ?? (this.clampToRange ? this.minTemperature : 20);
   }
 
   setState(value) {
@@ -25,6 +30,16 @@ export class TadoUpdateBuffer {
     Logger.debug("[TadoUpdateBuffer] setTemperature", value, hrtime.bigint());
   }
 
+  _normalizeTemperature(value) {
+    const temp = Number(value);
+    if (!Number.isFinite(temp)) return null;
+
+    if (temp < this.minTemperature) return this.clampToRange ? this.minTemperature : null;
+    if (this.maxTemperature !== null && temp > this.maxTemperature) return this.clampToRange ? this.maxTemperature : temp;
+
+    return parseFloat(temp.toFixed(2));
+  }
+
   _schedule() {
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => this._apply(), this.delay);
@@ -33,15 +48,17 @@ export class TadoUpdateBuffer {
   _apply() {
     this.timer = null;
     const state = this.pendingState;
-    const temp = this.pendingTemperature;
-    const tempSet = temp !== null && temp !== undefined && temp >= 5;
+    const rawTemp = this.pendingTemperature;
+    const siriAutoTemperature = Number(rawTemp) === 5;
+    const temp = siriAutoTemperature ? 5 : this._normalizeTemperature(rawTemp);
+    const tempSet = temp !== null;
     this.pendingState = null;
     this.pendingTemperature = null;
-    if (tempSet) this.lastTemperature = temp;
+    if (tempSet && !siriAutoTemperature) this.lastTemperature = temp;
 
     //Siri temperature heuristic
     if (this.preferSiriTemperature && state === 3 && tempSet) {
-      if (temp === 5) {
+      if (siriAutoTemperature) {
         //set auto mode on
         Logger.debug("[TadoUpdateBuffer] preferSiriTemperature active but temp=5 -> treat as auto mode");
         return this.sendUpdateFn("State", 3);

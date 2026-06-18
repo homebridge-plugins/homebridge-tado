@@ -1,11 +1,21 @@
 # Changelog
 
+# v9.3.0 - 2026-06-18
+- Fix: Treat tado zone id `0` as a valid zone id when resolving and updating configured zones (#169)
+- Fix: Resolve missing `HOT_WATER` zone ids for temperature-controlled boiler `HeaterCooler` accessories before sending overlays (#169)
+- Fix: Prevent invalid overlay requests from being sent when a zone id cannot be resolved (#169)
+- Fix: Use a valid configured `HOT_WATER` target temperature when Apple Home turns the accessory back on without providing one (#169)
+- Fix: Clamp only `HOT_WATER` target temperatures to the configured supported range before sending overlays (#169)
+- Fix: Apply `HeaterCooler` temperature limits before restoring cached threshold values to avoid HomeKit range warnings for `HOT_WATER` zones (#169)
+- Improve: Refine update buffer handling for accessory state and temperature updates
+- Update dependencies
+
 # v9.2.1 - 2026-06-06
 - Fix: HeaterCooler temperature limits are no longer overridden by an unset or zero `minValue`/`maxValue` from config (#169)
 - Fix: `accTypeBoiler` is now hidden in the UI when `boilerTempSupport` is enabled, as temperature-controlled hot water devices are always exposed as HeaterCooler (#169)
 
 # v9.2.0 - 2026-06-05
-- Fix: Incorrect warning "CoolingThresholdTemperature exceeded maximum of 35" for HOT_WATER zones with `boilerTempSupport: true` (#169)
+- Fix: Incorrect warning "CoolingThresholdTemperature exceeded maximum of 35" for `HOT_WATER` zones with `boilerTempSupport: true` (#169)
 - Fix: Config UI: show AC-specific fields for AIR_CONDITIONING zones (#173)
 - Update dependencies
 

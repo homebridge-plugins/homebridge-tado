@@ -30,6 +30,162 @@ export default (api, accessories, config, tado, telegram) => {
     return Object.keys(helpers[config.homeId].activeSettingStateRuns).length > 0;
   }
 
+
+  function _hasZoneId(zoneId) {
+    return zoneId !== undefined && zoneId !== null;
+  }
+
+  function _getExpectedAccessoryName(zone) {
+    return config.homeName + ' ' + zone.name + (zone.type === 'HEATING' ? ' Heater' : zone.type === 'AIR_CONDITIONING' ? ' AC' : ' Boiler');
+  }
+
+  function _getAccessoryNameSuffix(zone) {
+    return zone.name + (zone.type === 'HEATING' ? ' Heater' : zone.type === 'AIR_CONDITIONING' ? ' AC' : ' Boiler');
+  }
+
+  function _isAccessoryForZone(accessory, zone) {
+    return (
+      accessory &&
+      zone &&
+      accessory.context.config.type === zone.type &&
+      (accessory.displayName === _getExpectedAccessoryName(zone) ||
+        accessory.displayName === _getAccessoryNameSuffix(zone) ||
+        accessory.displayName.endsWith(' ' + _getAccessoryNameSuffix(zone)))
+    );
+  }
+
+  function _findConfiguredZoneForAccessory(accessory) {
+    if (!config.zones || !config.zones.length) return;
+
+    return config.zones.find((zone) => _isAccessoryForZone(accessory, zone));
+  }
+
+  async function _getZoneIdForAccessory(accessory) {
+    if (_hasZoneId(accessory.context.config.zoneId)) return accessory.context.config.zoneId;
+
+    let configuredZone = _findConfiguredZoneForAccessory(accessory);
+
+    if (configuredZone && _hasZoneId(configuredZone.id)) {
+      accessory.context.config.zoneId = configuredZone.id;
+      return configuredZone.id;
+    }
+
+    const allZones = (await tado.getZones(config.homeId)) || [];
+
+    for (const [index, zone] of config.zones.entries()) {
+      const foundZone = allZones.find((zoneWithID) => zoneWithID.name === zone.name && zoneWithID.type === zone.type);
+
+      if (foundZone && _hasZoneId(foundZone.id)) {
+        config.zones[index].id = foundZone.id;
+      }
+    }
+
+    configuredZone = _findConfiguredZoneForAccessory(accessory);
+
+    if (configuredZone && _hasZoneId(configuredZone.id)) {
+      accessory.context.config.zoneId = configuredZone.id;
+      return configuredZone.id;
+    }
+
+    Logger.error(`Cannot set state for ${accessory.displayName}: missing tado zone id. Please run reconfigure or add the correct zone id to the zone config.`);
+    return null;
+  }
+
+  function _getTemperatureLimits(accessory) {
+    let min =
+      accessory.context.config.type === 'HOT_WATER'
+        ? accessory.context.config.temperatureUnit === 'FAHRENHEIT'
+          ? 86
+          : 30
+        : accessory.context.config.temperatureUnit === 'FAHRENHEIT'
+          ? 41
+          : 5;
+
+    let max =
+      accessory.context.config.type === 'HOT_WATER'
+        ? accessory.context.config.temperatureUnit === 'FAHRENHEIT'
+          ? 149
+          : 65
+        : accessory.context.config.temperatureUnit === 'FAHRENHEIT'
+          ? 77
+          : 25;
+
+    if (
+      accessory.context.config.minValue != null &&
+      accessory.context.config.minValue > 0 &&
+      accessory.context.config.minValue < max
+    ) {
+      min = accessory.context.config.minValue;
+    }
+
+    if (
+      accessory.context.config.maxValue != null &&
+      accessory.context.config.maxValue > 0 &&
+      accessory.context.config.maxValue > min
+    ) {
+      max = accessory.context.config.maxValue;
+    }
+
+    return { min, max };
+  }
+
+  function _normalizeTemperatureForAccessory(accessory, temp) {
+    if (temp === null || temp === undefined) return temp;
+
+    const numericTemp = Number(temp);
+    if (!Number.isFinite(numericTemp)) return temp;
+
+    if (accessory.context.config.type !== 'HOT_WATER') return parseFloat(numericTemp.toFixed(2));
+
+    const { min, max } = _getTemperatureLimits(accessory);
+
+    return parseFloat(Math.min(Math.max(numericTemp, min), max).toFixed(2));
+  }
+
+  async function _setZoneOverlay(accessory, power, temp, mode) {
+    const zoneId = await _getZoneIdForAccessory(accessory);
+    if (!_hasZoneId(zoneId)) return false;
+
+    await tado.setZoneOverlay(
+      config.homeId,
+      zoneId,
+      power,
+      _normalizeTemperatureForAccessory(accessory, temp),
+      mode,
+      accessory.context.config.temperatureUnit
+    );
+
+    return true;
+  }
+
+  async function _setACZoneOverlay(accessory, power, acMode, temp, fanSpeed, swing, mode) {
+    const zoneId = await _getZoneIdForAccessory(accessory);
+    if (!_hasZoneId(zoneId)) return false;
+
+    await tado.setACZoneOverlay(
+      config.homeId,
+      zoneId,
+      power,
+      acMode,
+      _normalizeTemperatureForAccessory(accessory, temp),
+      fanSpeed,
+      swing,
+      mode,
+      accessory.context.config.temperatureUnit
+    );
+
+    return true;
+  }
+
+  async function _clearZoneOverlay(accessory) {
+    const zoneId = await _getZoneIdForAccessory(accessory);
+    if (!_hasZoneId(zoneId)) return false;
+
+    await tado.clearZoneOverlay(config.homeId, zoneId);
+
+    return true;
+  }
+
   async function setStates(accessory, accs, target, value) {
     let zoneUpdated = false;
     accessories = accs.filter((acc) => acc && acc.context.config.homeName === config.homeName);
@@ -80,27 +236,18 @@ export default (api, accessories, config, tado, telegram) => {
               // Use AC-specific overlay for AIR_CONDITIONING zones
               if (accessory.context.config.type === 'AIR_CONDITIONING') {
                 zoneUpdated = true;
-                await tado.setACZoneOverlay(
-                  config.homeId,
-                  accessory.context.config.zoneId,
+                await _setACZoneOverlay(
+                  accessory,
                   power,
                   'COOL', // Default AC mode for OFF state
                   temp,
                   null, // No fan speed for AC units
                   'OFF', // Default swing
-                  mode,
-                  accessory.context.config.temperatureUnit
+                  mode
                 );
               } else {
                 zoneUpdated = true;
-                await tado.setZoneOverlay(
-                  config.homeId,
-                  accessory.context.config.zoneId,
-                  power,
-                  temp,
-                  mode,
-                  accessory.context.config.temperatureUnit
-                );
+                await _setZoneOverlay(accessory, power, temp, mode);
               }
             } else {
               let mode =
@@ -133,7 +280,7 @@ export default (api, accessories, config, tado, telegram) => {
                     accessory.context.config.subtype.includes('heatercooler'))
                 ) {
                   zoneUpdated = true;
-                  await tado.clearZoneOverlay(config.homeId, accessory.context.config.zoneId);
+                  await _clearZoneOverlay(accessory);
                   return;
                 }
 
@@ -149,27 +296,18 @@ export default (api, accessories, config, tado, telegram) => {
                   let acMode = value === 1 ? 'HEAT' : value === 2 ? 'COOL' : 'COOL';
 
                   zoneUpdated = true;
-                  await tado.setACZoneOverlay(
-                    config.homeId,
-                    accessory.context.config.zoneId,
+                  await _setACZoneOverlay(
+                    accessory,
                     power,
                     acMode,
                     temp,
                     null, // No fan speed for AC units
                     'OFF', // Default swing
-                    mode,
-                    accessory.context.config.temperatureUnit
+                    mode
                   );
                 } else {
                   zoneUpdated = true;
-                  await tado.setZoneOverlay(
-                    config.homeId,
-                    accessory.context.config.zoneId,
-                    power,
-                    temp,
-                    mode,
-                    accessory.context.config.temperatureUnit
-                  );
+                  await _setZoneOverlay(accessory, power, temp, mode);
                 }
 
                 helpers[config.homeId].delayTimer[accessory.displayName] = null;
@@ -196,7 +334,7 @@ export default (api, accessories, config, tado, telegram) => {
                   accessory.context.config.subtype.includes('heatercooler'))
               ) {
                 zoneUpdated = true;
-                await tado.clearZoneOverlay(config.homeId, accessory.context.config.zoneId);
+                await _clearZoneOverlay(accessory);
                 return;
               }
 
@@ -259,27 +397,18 @@ export default (api, accessories, config, tado, telegram) => {
               }
 
               zoneUpdated = true;
-              await tado.setACZoneOverlay(
-                config.homeId,
-                accessory.context.config.zoneId,
+              await _setACZoneOverlay(
+                accessory,
                 power,
                 acMode,
                 temp,
                 null, // No fan speed for AC units
                 'OFF', // Default swing
-                mode,
-                accessory.context.config.temperatureUnit
+                mode
               );
             } else {
               zoneUpdated = true;
-              await tado.setZoneOverlay(
-                config.homeId,
-                accessory.context.config.zoneId,
-                power,
-                temp,
-                mode,
-                accessory.context.config.temperatureUnit
-              );
+              await _setZoneOverlay(accessory, power, temp, mode);
             }
           }
 
@@ -293,7 +422,7 @@ export default (api, accessories, config, tado, telegram) => {
           let temp = null;
           let power = value ? 'ON' : 'OFF';
 
-          if (faucetService) faucetService.getCharacteristic(this.api.hap.Characteristic.InUse).updateValue(value);
+          if (faucetService) faucetService.getCharacteristic(api.hap.Characteristic.InUse).updateValue(value);
 
           let mode =
             accessory.context.config.mode === 'TIMER'
@@ -303,27 +432,18 @@ export default (api, accessories, config, tado, telegram) => {
           // Use AC-specific overlay for AIR_CONDITIONING zones
           if (accessory.context.config.type === 'AIR_CONDITIONING') {
             zoneUpdated = true;
-            await tado.setACZoneOverlay(
-              config.homeId,
-              accessory.context.config.zoneId,
+            await _setACZoneOverlay(
+              accessory,
               power,
               'COOL', // Default AC mode for switch/faucet
               temp,
               null, // No fan speed for AC units
               'OFF', // Default swing
-              mode,
-              accessory.context.config.temperatureUnit
+              mode
             );
           } else {
             zoneUpdated = true;
-            await tado.setZoneOverlay(
-              config.homeId,
-              accessory.context.config.zoneId,
-              power,
-              temp,
-              mode,
-              accessory.context.config.temperatureUnit
-            );
+            await _setZoneOverlay(accessory, power, temp, mode);
           }
 
           break;
@@ -899,7 +1019,7 @@ export default (api, accessories, config, tado, telegram) => {
     let inOffMode = 0;
     let inAutoMode = 0;
 
-    let zonesWithoutID = config.zones.filter((zone) => zone && !zone.id);
+    let zonesWithoutID = config.zones.filter((zone) => zone && !_hasZoneId(zone.id));
 
     if (zonesWithoutID.length) {
       const allZones = (await tado.getZones(config.homeId)) || [];
@@ -917,11 +1037,11 @@ export default (api, accessories, config, tado, telegram) => {
     for (const [index, zone] of config.zones.entries()) {
       allZones.forEach((zoneWithID) => {
         if (zoneWithID.name === zone.name && zoneWithID.type === zone.type) {
-          const heatAccessory = accessories.filter(
-            (acc) => acc && acc.displayName === config.homeName + ' ' + zone.name + ' Heater'
-          );
+          const zoneAccessories = accessories.filter((acc) => _isAccessoryForZone(acc, zone));
 
-          if (heatAccessory.length) heatAccessory[0].context.config.zoneId = zoneWithID.id;
+          zoneAccessories.forEach((acc) => {
+            acc.context.config.zoneId = zoneWithID.id;
+          });
 
           config.zones[index].id = zoneWithID.id;
           config.zones[index].battery = !config.zones[index].noBattery
@@ -949,8 +1069,18 @@ export default (api, accessories, config, tado, telegram) => {
     }
 
     for (const zone of config.zones) {
+      if (!_hasZoneId(zone.id)) {
+        Logger.warn(`Skipping zone ${zone.name}: missing tado zone id.`);
+        continue;
+      }
+
       const zoneState = zoneStates[zone.id.toString()];
       Logger.debug(`Update state of zone ${zone.id} to:`, zoneState);
+
+      if (!zoneState || !zoneState.setting) {
+        Logger.warn(`Skipping zone ${zone.name}: missing tado zone state.`);
+        continue;
+      }
 
       let currentState, targetState, currentTemp, targetTemp, humidity, active, battery, tempEqual;
 

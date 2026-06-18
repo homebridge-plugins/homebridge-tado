@@ -16,11 +16,71 @@ export default class HeaterCoolerAccessory {
 
     this.autoDelayTimeout = null;
 
-    this.updateBuffer = new TadoUpdateBuffer((target, value) => {
-      return this.deviceHandler.setStates(this.accessory, this.accessories, target, value);
-    }, preferSiriTemperature);
+    const temperatureConfig = this.getTemperatureConfig();
+    const isHotWater = this.accessory.context.config.type === 'HOT_WATER';
+    const defaultTemperature = isHotWater ? temperatureConfig.minValue : 20;
+    const clampToRange = isHotWater;
+
+    this.updateBuffer = new TadoUpdateBuffer(
+      (target, value) => {
+        return this.deviceHandler.setStates(this.accessory, this.accessories, target, value);
+      },
+      preferSiriTemperature,
+      defaultTemperature,
+      temperatureConfig.minValue,
+      temperatureConfig.maxValue,
+      clampToRange
+    );
 
     this.getService();
+  }
+
+  getTemperatureConfig() {
+    let minValue =
+      this.accessory.context.config.type === 'HOT_WATER'
+        ? this.accessory.context.config.temperatureUnit === 'FAHRENHEIT'
+          ? 86
+          : 30
+        : this.accessory.context.config.temperatureUnit === 'FAHRENHEIT'
+          ? 41
+          : 5;
+
+    let maxValue =
+      this.accessory.context.config.type === 'HOT_WATER'
+        ? this.accessory.context.config.temperatureUnit === 'FAHRENHEIT'
+          ? 149
+          : 65
+        : this.accessory.context.config.temperatureUnit === 'FAHRENHEIT'
+          ? 77
+          : 25;
+
+    //only override temperature limits if config value is explicitly and correctly set
+    if (
+      this.accessory.context.config.minValue != null &&
+      this.accessory.context.config.minValue > 0 &&
+      this.accessory.context.config.minValue < maxValue
+    ) {
+      minValue = this.accessory.context.config.minValue;
+    }
+    if (
+      this.accessory.context.config.maxValue != null &&
+      this.accessory.context.config.maxValue > 0 &&
+      this.accessory.context.config.maxValue > minValue
+    ) {
+      maxValue = this.accessory.context.config.maxValue;
+    }
+
+    const minStep = parseFloat(
+      (this.accessory.context.config.minStep &&
+        !isNaN(this.accessory.context.config.minStep) &&
+        this.accessory.context.config.minStep > 0 &&
+        this.accessory.context.config.minStep <= 1
+        ? parseFloat(this.accessory.context.config.minStep)
+        : 1
+      ).toFixed(2)
+    );
+
+    return { minValue, maxValue, minStep };
   }
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -149,53 +209,7 @@ export default class HeaterCoolerAccessory {
         );
     }
 
-    let minValue =
-      this.accessory.context.config.type === 'HOT_WATER'
-        ? this.accessory.context.config.temperatureUnit === 'CELSIUS'
-          ? 30
-          : 86
-        : this.accessory.context.config.temperatureUnit === 'CELSIUS'
-          ? 5
-          : 41;
-
-    let maxValue =
-      this.accessory.context.config.type === 'HOT_WATER'
-        ? this.accessory.context.config.temperatureUnit === 'CELSIUS'
-          ? 65
-          : 149
-        : this.accessory.context.config.temperatureUnit === 'CELSIUS'
-          ? 25
-          : 77;
-
-    //only override temperature limits if config value is explicitly and correctly set
-    if (
-      this.accessory.context.config.minValue != null &&
-      this.accessory.context.config.minValue > 0 &&
-      this.accessory.context.config.minValue < maxValue
-    ) {
-      minValue = this.accessory.context.config.minValue;
-    }
-    if (
-      this.accessory.context.config.maxValue != null &&
-      this.accessory.context.config.maxValue > 0 &&
-      this.accessory.context.config.maxValue > minValue
-    ) {
-      maxValue = this.accessory.context.config.maxValue;
-    }
-
-    console.log('Before MINSTEP: ' + this.accessory.context.config.minStep, this.accessory.displayName);
-
-    let minStep = parseFloat(
-      (this.accessory.context.config.minStep &&
-        !isNaN(this.accessory.context.config.minStep) &&
-        this.accessory.context.config.minStep > 0 &&
-        this.accessory.context.config.minStep <= 1
-        ? parseFloat(this.accessory.context.config.minStep)
-        : 1
-      ).toFixed(2)
-    );
-
-    console.log('After MINSTEP: ' + minStep, this.accessory.displayName);
+    const { minValue, maxValue, minStep } = this.getTemperatureConfig();
 
     let maxState = this.accessory.context.config.type === 'HOT_WATER' ? 2 : 3;
 
@@ -232,30 +246,38 @@ export default class HeaterCoolerAccessory {
       maxValue: 255,
     });
 
-    if (service.getCharacteristic(this.api.hap.Characteristic.HeatingThresholdTemperature).value < minValue)
-      service.getCharacteristic(this.api.hap.Characteristic.HeatingThresholdTemperature).updateValue(minValue);
+    const heatingThreshold = service.getCharacteristic(this.api.hap.Characteristic.HeatingThresholdTemperature);
 
-    if (service.getCharacteristic(this.api.hap.Characteristic.HeatingThresholdTemperature).value > maxValue)
-      service.getCharacteristic(this.api.hap.Characteristic.HeatingThresholdTemperature).updateValue(maxValue);
-
-    service.getCharacteristic(this.api.hap.Characteristic.HeatingThresholdTemperature).setProps({
+    heatingThreshold.setProps({
       minValue: minValue,
       maxValue: maxValue,
       minStep: minStep,
     });
 
+    let heatingThresholdValue = Number(heatingThreshold.value);
+
+    if (!Number.isFinite(heatingThresholdValue) || heatingThresholdValue < minValue)
+      heatingThreshold.updateValue(minValue);
+
+    if (Number.isFinite(heatingThresholdValue) && heatingThresholdValue > maxValue)
+      heatingThreshold.updateValue(maxValue);
+
     if (this.accessory.context.config.type === 'HEATING') {
-      if (service.getCharacteristic(this.api.hap.Characteristic.CoolingThresholdTemperature).value < minValue)
-        service.getCharacteristic(this.api.hap.Characteristic.CoolingThresholdTemperature).updateValue(minValue);
+      const coolingThreshold = service.getCharacteristic(this.api.hap.Characteristic.CoolingThresholdTemperature);
 
-      if (service.getCharacteristic(this.api.hap.Characteristic.CoolingThresholdTemperature).value > maxValue)
-        service.getCharacteristic(this.api.hap.Characteristic.CoolingThresholdTemperature).updateValue(maxValue);
-
-      service.getCharacteristic(this.api.hap.Characteristic.CoolingThresholdTemperature).setProps({
+      coolingThreshold.setProps({
         minValue: minValue,
         maxValue: maxValue,
         minStep: minStep,
       });
+
+      let coolingThresholdValue = Number(coolingThreshold.value);
+
+      if (!Number.isFinite(coolingThresholdValue) || coolingThresholdValue < minValue)
+        coolingThreshold.updateValue(minValue);
+
+      if (Number.isFinite(coolingThresholdValue) && coolingThresholdValue > maxValue)
+        coolingThreshold.updateValue(maxValue);
     }
 
     if (!service.testCharacteristic(this.api.hap.Characteristic.ValvePosition))

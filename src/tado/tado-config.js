@@ -15,6 +15,8 @@ const hashCode = (s) =>
 const devices = new Map();
 const deviceHandler = new Map();
 
+const hasZoneId = (zoneId) => zoneId !== undefined && zoneId !== null;
+
 let telegram;
 
 export default {
@@ -554,6 +556,13 @@ export default {
                   zone.type = 'HEATING';
                 }
 
+                if (!hasZoneId(zone.id)) {
+                  Logger.warn(
+                    'There is no tado zone id configured for this zone. The plugin will try to resolve it from the tado API at runtime. Run reconfigure to persist it in the config.',
+                    zone.name
+                  );
+                }
+
                 if (!error) {
                   activeZones += 1;
 
@@ -879,7 +888,7 @@ export default {
                   config.name = name;
                   config.subtype = 'extra-cntrlswitch';
                   config.runningInformation = home.extras.runningInformation;
-                  config.rooms = home.zones.filter((zne) => zne && zne.id);
+                  config.rooms = home.zones.filter((zne) => zne && hasZoneId(zne.id));
                   config.switches = validSwitches;
                   config.model = 'Central Switch';
                   config.serialNumber = hashCode(name);
