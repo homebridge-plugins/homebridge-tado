@@ -1,5 +1,9 @@
 # Changelog
 
+# v9.3.1 - 2026-06-19
+- Fix: Preserve previous update buffer behaviour for default `preferSiriTemperature` handling while keeping the `HOT_WATER` range safeguards (#169)
+- Fix: Improve HeaterCooler threshold value correction during startup
+
 # v9.3.0 - 2026-06-18
 - Fix: Treat tado zone id `0` as a valid zone id when resolving and updating configured zones (#169)
 - Fix: Resolve missing `HOT_WATER` zone ids for temperature-controlled boiler `HeaterCooler` accessories before sending overlays (#169)
@@ -215,9 +219,9 @@
 ## v6.0.9 - 2021-03-22
 - Added "Dummy Switch" option to Central Switch
 - Added new accessory type option (LightSensor) to Solar Intensity Accessory
-- Added new mode (CUSTOM) to HOT_WATER devices
+- Added new mode (CUSTOM) to `HOT_WATER` devices
 - Fixed current state of HeaterCooler if temperature is reached
-- Fixed AUTO mode for HOT_WATER devices
+- Fixed AUTO mode for `HOT_WATER` devices
 - Bugfixes
 - Bump deps
 
@@ -229,7 +233,7 @@
 
 ## v6.0.6 - 2021-03-16
 - Added minValue, maxValue, minStep options to config
-- Fixed target temperature for HOT_WATER if power = "ON"
+- Fixed target temperature for `HOT_WATER` if power = "ON"
 - Other little bugfixes & improvements
 
 ## v6.0.5 - 2021-03-16
@@ -247,7 +251,7 @@
 
 ## v6.0.1 - 2021-03-15
 - Fixed a bug with faucet accessory appearing as air quality sensor
-- Fixed a bug for HOT_WATER devices without temperature support
+- Fixed a bug for `HOT_WATER` devices without temperature support
 - Improvements
 
 **Note:**
@@ -256,7 +260,7 @@ Hot water devices show 0° when they are first started in Apple Home if they are
 
 **IMPORTANT:**
 
-If you previously used your "HOT_WATER" device/zone as a faucet, then disable the zone after the update and restart Homebridge pls. After the restart, you can enable the zone with the faucet again.
+If you previously used your "`HOT_WATER`" device/zone as a faucet, then disable the zone after the update and restart Homebridge pls. After the restart, you can enable the zone with the faucet again.
 
 ## v6.0.0 - 2021-03-14
 **<u>NOTE:</u>** Updating from **<= v5.x** to **v6.x** will crash your homebridge, please **REMOVE** the old version first and check also the new [example-config.json](https://github.com/homebridge-plugins/homebridge-tado/blob/latest/example-config.json) 

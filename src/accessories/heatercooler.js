@@ -1,6 +1,6 @@
 import Logger from '../helper/logger.js';
 import moment from 'moment';
-import { TadoUpdateBuffer } from '../helper/update-buffer.js'
+import { TadoUpdateBuffer } from '../helper/update-buffer.js';
 
 const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
 
@@ -255,12 +255,11 @@ export default class HeaterCoolerAccessory {
     });
 
     let heatingThresholdValue = Number(heatingThreshold.value);
-
-    if (!Number.isFinite(heatingThresholdValue) || heatingThresholdValue < minValue)
+    if (!Number.isFinite(heatingThresholdValue) || heatingThresholdValue < minValue) {
       heatingThreshold.updateValue(minValue);
-
-    if (Number.isFinite(heatingThresholdValue) && heatingThresholdValue > maxValue)
+    } else if (heatingThresholdValue > maxValue) {
       heatingThreshold.updateValue(maxValue);
+    }
 
     if (this.accessory.context.config.type === 'HEATING') {
       const coolingThreshold = service.getCharacteristic(this.api.hap.Characteristic.CoolingThresholdTemperature);
@@ -272,12 +271,11 @@ export default class HeaterCoolerAccessory {
       });
 
       let coolingThresholdValue = Number(coolingThreshold.value);
-
-      if (!Number.isFinite(coolingThresholdValue) || coolingThresholdValue < minValue)
+      if (!Number.isFinite(coolingThresholdValue) || coolingThresholdValue < minValue) {
         coolingThreshold.updateValue(minValue);
-
-      if (Number.isFinite(coolingThresholdValue) && coolingThresholdValue > maxValue)
+      } else if (coolingThresholdValue > maxValue) {
         coolingThreshold.updateValue(maxValue);
+      }
     }
 
     if (!service.testCharacteristic(this.api.hap.Characteristic.ValvePosition))

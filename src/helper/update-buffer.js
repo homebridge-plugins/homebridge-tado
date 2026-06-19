@@ -54,7 +54,7 @@ export class TadoUpdateBuffer {
     const tempSet = temp !== null;
     this.pendingState = null;
     this.pendingTemperature = null;
-    if (tempSet && !siriAutoTemperature) this.lastTemperature = temp;
+    if (tempSet && (!siriAutoTemperature || !this.preferSiriTemperature)) this.lastTemperature = temp;
 
     //Siri temperature heuristic
     if (this.preferSiriTemperature && state === 3 && tempSet) {
