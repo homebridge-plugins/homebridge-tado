@@ -129,6 +129,14 @@ export default (api, accessories, config, tado, telegram) => {
     return { min, max };
   }
 
+  function _getTemperatureValue(temperature) {
+    if (!temperature) return undefined;
+
+    return config.temperatureUnit === 'FAHRENHEIT'
+      ? temperature.fahrenheit
+      : temperature.celsius;
+  }
+
   function _normalizeTemperatureForAccessory(accessory, temp) {
     if (temp === null || temp === undefined) return temp;
 
@@ -1091,16 +1099,10 @@ export default (api, accessories, config, tado, telegram) => {
 
         //HEATING
         if (zoneState.sensorDataPoints.insideTemperature) {
-          currentTemp =
-            config.temperatureUnit === 'FAHRENHEIT'
-              ? zoneState.sensorDataPoints.insideTemperature.fahrenheit
-              : zoneState.sensorDataPoints.insideTemperature.celsius;
+          currentTemp = _getTemperatureValue(zoneState.sensorDataPoints.insideTemperature);
 
           if (zoneState.setting.power === 'ON') {
-            targetTemp =
-              config.temperatureUnit === 'FAHRENHEIT'
-                ? zoneState.setting.temperature.fahrenheit
-                : zoneState.setting.temperature.celsius;
+            targetTemp = _getTemperatureValue(zoneState.setting.temperature);
 
             tempEqual = Math.round(currentTemp) === Math.round(targetTemp);
 
@@ -1230,28 +1232,22 @@ export default (api, accessories, config, tado, telegram) => {
         // Non-HEATING zones (AIR_CONDITIONING, HOT_WATER, etc.)
         battery = zone.battery === 'NORMAL' ? 100 : 10;
 
-        if (zoneState.sensorDataPoints.humidity) {
+        if (zoneState.sensorDataPoints && zoneState.sensorDataPoints.humidity) {
           humidity = zoneState.sensorDataPoints.humidity.percentage;
         }
 
-        // Get current temperature from sensor data (same as HEATING zones)
-        if (zoneState.sensorDataPoints.insideTemperature) {
-          currentTemp =
-            config.temperatureUnit === 'FAHRENHEIT'
-              ? zoneState.sensorDataPoints.insideTemperature.fahrenheit
-              : zoneState.sensorDataPoints.insideTemperature.celsius;
+        // Get current temperature from sensor data if tado provides it.
+        // HOT_WATER zones often do not expose sensorDataPoints.insideTemperature;
+        // the HeaterCooler service applies a fallback below when needed.
+        if (zoneState.sensorDataPoints && zoneState.sensorDataPoints.insideTemperature) {
+          currentTemp = _getTemperatureValue(zoneState.sensorDataPoints.insideTemperature);
         }
 
         if (zoneState.setting.power === 'ON') {
           active = 1;
 
           // Get target temperature from setting
-          targetTemp =
-            zoneState.setting.temperature !== null && zoneState.setting.temperature
-              ? config.temperatureUnit === 'FAHRENHEIT'
-                ? zoneState.setting.temperature.fahrenheit
-                : zoneState.setting.temperature.celsius
-              : undefined;
+          targetTemp = _getTemperatureValue(zoneState.setting.temperature);
 
           // Enhanced AC state handling
           if (zone.type === 'AIR_CONDITIONING') {
@@ -1309,11 +1305,30 @@ export default (api, accessories, config, tado, telegram) => {
 
               service.getCharacteristic(characteristicTargetState).updateValue(targetState);
 
-              // Set current temperature from sensor data
-              if (!isNaN(currentTemp) || acc.context.currentTemp) {
-                if (!isNaN(currentTemp)) acc.context.currentTemp = currentTemp; //store current temp in config
+              // Set current temperature from sensor data when available.
+              // HOT_WATER zones can have no sensorDataPoints.insideTemperature in the tado API.
+              // In that case, keep the last known value; if none exists, fall back to the
+              // configured hot-water target temperature and finally the configured minimum.
+              let homeKitCurrentTemp = currentTemp;
+              const isValidTemperature = (value) => value !== undefined && value !== null && !isNaN(value);
 
-                service.getCharacteristic(characteristicCurrentTemp).updateValue(acc.context.currentTemp);
+              if (zone.type === 'HOT_WATER' && !isValidTemperature(homeKitCurrentTemp)) {
+                if (isValidTemperature(acc.context.currentTemp)) {
+                  homeKitCurrentTemp = acc.context.currentTemp;
+                } else if (isValidTemperature(targetTemp)) {
+                  homeKitCurrentTemp = targetTemp;
+                } else if (isValidTemperature(zone.minValue)) {
+                  homeKitCurrentTemp = zone.minValue;
+                } else if (acc.context.config && isValidTemperature(acc.context.config.minValue)) {
+                  homeKitCurrentTemp = acc.context.config.minValue;
+                } else {
+                  homeKitCurrentTemp = 30;
+                }
+              }
+
+              if (!isNaN(homeKitCurrentTemp)) {
+                acc.context.currentTemp = homeKitCurrentTemp; //store current temp in config
+                service.getCharacteristic(characteristicCurrentTemp).updateValue(homeKitCurrentTemp);
               }
 
               // Set target temperature for both heating and cooling
@@ -1569,12 +1584,10 @@ export default (api, accessories, config, tado, telegram) => {
       const weather = await tado.getWeather(config.homeId);
 
       if (weatherTemperatureAccessory.length && weather.outsideTemperature) {
-        let tempUnit = config.temperatureUnit;
         let service = weatherTemperatureAccessory[0].getService(api.hap.Service.TemperatureSensor);
         let characteristic = api.hap.Characteristic.CurrentTemperature;
 
-        let temp =
-          tempUnit === 'FAHRENHEIT' ? weather.outsideTemperature.fahrenheit : weather.outsideTemperature.celsius;
+        let temp = _getTemperatureValue(weather.outsideTemperature);
 
         service.getCharacteristic(characteristic).updateValue(temp);
       }

@@ -1,5 +1,8 @@
 # Changelog
 
+# v9.3.2 - 2026-06-21
+- Fix: Add a defensive `CurrentTemperature` fallback for `HOT_WATER` HeaterCooler accessories when tado does not provide `sensorDataPoints.insideTemperature` (#169)
+
 # v9.3.1 - 2026-06-19
 - Fix: Preserve previous update buffer behaviour for default `preferSiriTemperature` handling while keeping the `HOT_WATER` range safeguards (#169)
 - Fix: Improve HeaterCooler threshold value correction during startup
