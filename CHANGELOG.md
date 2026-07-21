@@ -1,5 +1,8 @@
 # Changelog
 
+# v9.4.0 - 2026-07-21
+- Update dependencies
+
 # v9.3.2 - 2026-06-21
 - Fix: Add a defensive `CurrentTemperature` fallback for `HOT_WATER` HeaterCooler accessories when tado does not provide `sensorDataPoints.insideTemperature` (#169)
 
