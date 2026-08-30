@@ -2,6 +2,7 @@ import Logger from '../helper/logger.js';
 import got from 'got';
 import { join } from 'path';
 import { access, readFile, writeFile } from 'fs/promises';
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
 
 const tado_url = "https://my.tado.com";
 const tado_auth_url = "https://login.tado.com/oauth2";
@@ -113,6 +114,28 @@ export default class Tado {
     }
   }
 
+  _getTokenEncryptionKey() {
+    return createHash('sha256').update(this.storagePath + ':' + this.hashedUsername).digest();
+  }
+
+  _encryptTokenData(data) {
+    const iv = randomBytes(16);
+    const cipher = createCipheriv('aes-256-gcm', this._getTokenEncryptionKey(), iv, { authTagLength: 16 });
+    const encrypted = Buffer.concat([cipher.update(JSON.stringify(data), 'utf8'), cipher.final()]);
+    return Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString('base64');
+  }
+
+  _decryptTokenData(encoded) {
+    try {
+      const buf = Buffer.from(encoded, 'base64');
+      const decipher = createDecipheriv('aes-256-gcm', this._getTokenEncryptionKey(), buf.subarray(0, 16), { authTagLength: 16 });
+      decipher.setAuthTag(buf.subarray(16, 32));
+      return Buffer.concat([decipher.update(buf.subarray(32)), decipher.final()]).toString('utf8');
+    } catch (_err) {
+      return encoded;
+    }
+  }
+
   async getToken() {
     Logger.debug('Get access token...', this.name);
     if (!this._tadoTokenPromise) {
@@ -154,7 +177,7 @@ export default class Tado {
     const maxRetries = 3;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const data = await readFile(this._tadoInternalTokenFilePath, "utf8");
+        const data = this._decryptTokenData(await readFile(this._tadoInternalTokenFilePath, "utf8"));
         const json = JSON.parse(data);
         if (json.refresh_token) return json.refresh_token;
       } catch (error) {
@@ -180,7 +203,7 @@ export default class Tado {
       await this._increaseCounter();
       const { access_token, refresh_token } = response.body;
       if (!access_token || !refresh_token) throw new Error("Empty access/refresh token.");
-      await writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
+      await writeFile(this._tadoInternalTokenFilePath, this._encryptTokenData({ access_token, refresh_token }));
       this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
     } catch (error) {
       Logger.warn(`Error while refreshing token: ${error.message || JSON.stringify(error)}`);
@@ -226,7 +249,7 @@ export default class Tado {
         const { access_token, refresh_token } = tokenResponse.body;
         if (access_token && refresh_token) {
           await this._verifyAuthenticatedIdentity(access_token);
-          await writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
+          await writeFile(this._tadoInternalTokenFilePath, this._encryptTokenData({ access_token, refresh_token }));
           this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
           Logger.info("Authentication successful!");
           return;
