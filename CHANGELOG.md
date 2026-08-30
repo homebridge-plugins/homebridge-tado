@@ -1,5 +1,10 @@
 # Changelog
 
+# v9.4.1 - 2026-08-30
+- Fix: Send the configured zone type instead of relying on tado's zone state when creating overlays, fixing "create HEATING overlay is not supported for zone type HOT_WATER" errors (#201)
+- Fix: Exclude `HOT_WATER`/`AIR_CONDITIONING` zones from the central Boost/Central/Off switch, which sent the same invalid overlay to them (#201)
+- Update dependencies
+
 # v9.4.0 - 2026-07-21
 - Update dependencies
 

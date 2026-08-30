@@ -59,3 +59,5 @@ typings/
 
 # IntelliJ
 .idea
+
+.DS_Store

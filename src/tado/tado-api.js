@@ -476,13 +476,17 @@ export default class Tado {
     return this.apiCall(`/api/v2/homes/${home_id}/zones/${zone_id}/overlay`, 'DELETE');
   }
 
-  async setZoneOverlay(home_id, zone_id, power, temperature, termination, tempUnit) {
+  async setZoneOverlay(home_id, zone_id, power, temperature, termination, tempUnit, zoneType) {
     const zone_state = await this.getZoneState(home_id, zone_id);
 
     const config = {
-      setting: zone_state.setting,
+      setting: { ...zone_state.setting },
       termination: {},
     };
+
+    // Don't trust zone_state.setting.type here, tado sometimes omits it, causing the API to
+    // default to HEATING and reject overlays for HOT_WATER zones (#201).
+    config.setting.type = zoneType || zone_state.setting.type;
 
     // Fix: Use case-insensitive comparison and handle both 'ON' and 'on'
     if (power && power.toString().toLowerCase() === 'on') {

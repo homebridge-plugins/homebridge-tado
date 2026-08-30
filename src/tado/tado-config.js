@@ -888,7 +888,8 @@ export default {
                   config.name = name;
                   config.subtype = 'extra-cntrlswitch';
                   config.runningInformation = home.extras.runningInformation;
-                  config.rooms = home.zones.filter((zne) => zne && hasZoneId(zne.id));
+                  // Boost/Central/Off mimic tado's central heating boost and must not touch HOT_WATER/AIR_CONDITIONING zones
+                  config.rooms = home.zones.filter((zne) => zne && hasZoneId(zne.id) && zne.type === 'HEATING');
                   config.switches = validSwitches;
                   config.model = 'Central Switch';
                   config.serialNumber = hashCode(name);

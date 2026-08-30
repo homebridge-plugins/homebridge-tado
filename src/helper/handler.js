@@ -160,7 +160,8 @@ export default (api, accessories, config, tado, telegram) => {
       power,
       _normalizeTemperatureForAccessory(accessory, temp),
       mode,
-      accessory.context.config.temperatureUnit
+      accessory.context.config.temperatureUnit,
+      accessory.context.config.type
     );
 
     return true;
@@ -535,6 +536,7 @@ export default (api, accessories, config, tado, telegram) => {
             .map((room) => {
               return {
                 id: room.id,
+                type: room.type,
                 power: target === 'Central' ? (value ? 'ON' : 'OFF') : target === 'Off' ? 'OFF' : 'ON',
                 maxTempInCelsius: target === 'Central' ? (value ? 25 : 0) : target === 'Off' ? false : 25,
                 termination: ['MANUAL', 'AUTO', 'TIMER'].includes(room.mode) ? room.mode : 'MANUAL',
