@@ -1,6 +1,6 @@
 # Changelog
 
-# v10.0.0 - 2026-09-02
+# v10.0.0 (BETA) - 2026-09-02
 - **Breaking:** Removed the Elgato EVE history feature (FakeGato). Temperature/humidity/contact/motion/thermostat accessories no longer expose history graphs to the Eve app, the `disableHistoryService` config option is gone, and history data is no longer persisted to disk. All other characteristics (including `LastActivation`, `TimesOpened`, and window-open Telegram notifications) keep working as before.
 - Removed every remaining third-party runtime dependency (`got`, `form-data`, `fs-extra`, `moment`) in favor of Node.js 22's built-in `fetch`, `FormData`, and `fs`/`Date` APIs, reducing the plugin's footprint and third-party attack surface for the long term.
 
