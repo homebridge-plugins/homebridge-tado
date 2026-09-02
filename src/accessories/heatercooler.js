@@ -1,15 +1,11 @@
 import Logger from '../helper/logger.js';
-import moment from 'moment';
 import { TadoUpdateBuffer } from '../helper/update-buffer.js';
 
-const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
-
 export default class HeaterCoolerAccessory {
-  constructor(api, accessory, accessories, tado, deviceHandler, preferSiriTemperature, FakeGatoHistoryService) {
+  constructor(api, accessory, accessories, tado, deviceHandler, preferSiriTemperature) {
     this.api = api;
     this.accessory = accessory;
     this.accessories = accessories;
-    this.FakeGatoHistoryService = FakeGatoHistoryService;
 
     this.deviceHandler = deviceHandler;
     this.tado = tado;
@@ -285,77 +281,19 @@ export default class HeaterCoolerAccessory {
     if (service.testCharacteristic(this.api.hap.Characteristic.RotationSpeed))
       service.removeCharacteristic(service.getCharacteristic(this.api.hap.Characteristic.RotationSpeed));
 
-    this.historyService = this.FakeGatoHistoryService ? new this.FakeGatoHistoryService('thermo', this.accessory, {
-      storage: 'fs',
-      path: this.api.user.storagePath(),
-      disableTimer: true,
-    }) : undefined;
-
-    await timeout(250); //wait for historyService to load
-
     service
       .getCharacteristic(this.api.hap.Characteristic.Active)
-      .onSet(value => this.updateBuffer.setState(value))
-      .on(
-        'change',
-        this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
-      );
-
-    service
-      .getCharacteristic(this.api.hap.Characteristic.CurrentTemperature)
-      .on(
-        'change',
-        this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
-      );
+      .onSet(value => this.updateBuffer.setState(value));
 
     service
       .getCharacteristic(this.api.hap.Characteristic.HeatingThresholdTemperature)
-      .onSet(value => this.updateBuffer.setTemperature(value))
-      .on(
-        'change',
-        this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
-      );
+      .onSet(value => this.updateBuffer.setTemperature(value));
 
     // Add CoolingThresholdTemperature handler for AIR_CONDITIONING units
     if (this.accessory.context.config.type === 'AIR_CONDITIONING') {
       service
         .getCharacteristic(this.api.hap.Characteristic.CoolingThresholdTemperature)
-        .onSet(value => this.updateBuffer.setTemperature(value))
-        .on(
-          'change',
-          this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
-        );
+        .onSet(value => this.updateBuffer.setTemperature(value));
     }
-
-    service
-      .getCharacteristic(this.api.hap.Characteristic.ValvePosition)
-      .on(
-        'change',
-        this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
-      );
-
-    if (this.FakeGatoHistoryService && !this.refreshHistoryHandlerRegistered) {
-      this.deviceHandler.refreshHistoryHandlers.push(() => this.refreshHistory(service));
-      this.refreshHistoryHandlerRegistered = true;
-    }
-  }
-
-  refreshHistory(service) {
-    let currentState = service.getCharacteristic(this.api.hap.Characteristic.CurrentHeaterCoolerState).value;
-    let currentTemp = service.getCharacteristic(this.api.hap.Characteristic.CurrentTemperature).value;
-    let targetTemp = service.getCharacteristic(this.api.hap.Characteristic.HeatingThresholdTemperature).value;
-
-    let valvePos =
-      currentTemp <= targetTemp && currentState !== 0
-        ? Math.round(targetTemp - currentTemp >= 5 ? 100 : (targetTemp - currentTemp) * 20)
-        : 0;
-
-    //Thermo
-    if (this.historyService) this.historyService.addEntry({
-      time: moment().unix(),
-      currentTemp: currentTemp,
-      setTemp: targetTemp,
-      valvePosition: valvePos,
-    });
   }
 }

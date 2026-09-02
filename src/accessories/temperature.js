@@ -1,14 +1,10 @@
 import Logger from '../helper/logger.js';
-import moment from 'moment';
-
-const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
 
 export default class TemperatureAccessory {
-  constructor(api, accessory, accessories, tado, deviceHandler, FakeGatoHistoryService) {
+  constructor(api, accessory, accessories, tado, deviceHandler) {
     this.api = api;
     this.accessory = accessory;
     this.accessories = accessories;
-    this.FakeGatoHistoryService = FakeGatoHistoryService;
 
     this.deviceHandler = deviceHandler;
     this.tado = tado;
@@ -53,37 +49,6 @@ export default class TemperatureAccessory {
     service.getCharacteristic(this.api.hap.Characteristic.CurrentTemperature).setProps({
       minValue: -100,
       maxValue: 100,
-    });
-
-    this.historyService = this.FakeGatoHistoryService ? new this.FakeGatoHistoryService('room', this.accessory, {
-      storage: 'fs',
-      path: this.api.user.storagePath(),
-      disableTimer: true,
-    }) : undefined;
-
-    await timeout(250); //wait for historyService to load
-
-    service
-      .getCharacteristic(this.api.hap.Characteristic.CurrentTemperature)
-      .on(
-        'change',
-        this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
-      );
-
-    if (this.FakeGatoHistoryService && !this.refreshHistoryHandlerRegistered) {
-      this.deviceHandler.refreshHistoryHandlers.push(() => this.refreshHistory(service));
-      this.refreshHistoryHandlerRegistered = true;
-    }
-  }
-
-  refreshHistory(service) {
-    let state = service.getCharacteristic(this.api.hap.Characteristic.CurrentTemperature).value;
-
-    if (this.historyService) this.historyService.addEntry({
-      time: moment().unix(),
-      temp: state,
-      humidity: 0,
-      ppm: 0,
     });
   }
 }

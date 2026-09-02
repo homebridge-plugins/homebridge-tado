@@ -1,5 +1,9 @@
 # Changelog
 
+# v10.0.0 - 2026-09-02
+- **Breaking:** Removed the Elgato EVE history feature (FakeGato). Temperature/humidity/contact/motion/thermostat accessories no longer expose history graphs to the Eve app, the `disableHistoryService` config option is gone, and history data is no longer persisted to disk. All other characteristics (including `LastActivation`, `TimesOpened`, and window-open Telegram notifications) keep working as before.
+- Removed every remaining third-party runtime dependency (`got`, `form-data`, `fs-extra`, `moment`) in favor of Node.js 22's built-in `fetch`, `FormData`, and `fs`/`Date` APIs, reducing the plugin's footprint and third-party attack surface for the long term.
+
 # v9.4.1 - 2026-08-30
 - Fix: Send the configured zone type instead of relying on tado's zone state when creating overlays, fixing "create HEATING overlay is not supported for zone type HOT_WATER" errors (#201)
 - Fix: Exclude `HOT_WATER`/`AIR_CONDITIONING` zones from the central Boost/Central/Off switch, which sent the same invalid overlay to them (#201)

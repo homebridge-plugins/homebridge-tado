@@ -1,7 +1,6 @@
 import DeviceHandler from './helper/handler.js';
 import Logger from './helper/logger.js';
 import TadoConfig from './tado/tado-config.js';
-import fakeGatoHistory from 'fakegato-history';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from "url";
 import { join, dirname } from "path";
@@ -26,7 +25,7 @@ import EveTypes from './types/eve.js';
 
 const PLUGIN_NAME = '@homebridge-plugins/homebridge-tado';
 const PLATFORM_NAME = 'TadoPlatform';
-let Accessory, UUIDGen, FakeGatoHistoryService;
+let Accessory, UUIDGen;
 
 export default function (homebridge) {
   Accessory = homebridge.platformAccessory;
@@ -41,7 +40,6 @@ class TadoPlatform {
     Logger.init(log, config.debug);
     CustomTypes.registerWith(api.hap);
     EveTypes.registerWith(api.hap);
-    FakeGatoHistoryService = config.disableHistoryService ? undefined : fakeGatoHistory(api);
 
     this.api = api;
     this.accessories = [];
@@ -237,12 +235,12 @@ class TadoPlatform {
 
     switch (device.subtype) {
       case 'zone-thermostat':
-        new ThermostatAccessory(this.api, accessory, this.accessories, tado, deviceHandler, this.config.preferSiriTemperature, FakeGatoHistoryService);
+        new ThermostatAccessory(this.api, accessory, this.accessories, tado, deviceHandler, this.config.preferSiriTemperature);
         break;
       case 'zone-heatercooler':
       case 'zone-heatercooler-boiler':
       case 'zone-heatercooler-ac':
-        new HeaterCoolerAccessory(this.api, accessory, this.accessories, tado, deviceHandler, this.config.preferSiriTemperature, FakeGatoHistoryService);
+        new HeaterCoolerAccessory(this.api, accessory, this.accessories, tado, deviceHandler, this.config.preferSiriTemperature);
         break;
       case 'zone-switch':
       case 'zone-window-switch':
@@ -258,22 +256,22 @@ class TadoPlatform {
         new FaucetAccessory(this.api, accessory, this.accessories, tado, deviceHandler);
         break;
       case 'zone-window-contact':
-        new ContactAccessory(this.api, accessory, this.accessories, tado, deviceHandler, FakeGatoHistoryService);
+        new ContactAccessory(this.api, accessory, this.accessories, tado, deviceHandler);
         break;
       case 'zone-temperature':
-        new TemperatureAccessory(this.api, accessory, this.accessories, tado, deviceHandler, FakeGatoHistoryService);
+        new TemperatureAccessory(this.api, accessory, this.accessories, tado, deviceHandler);
         break;
       case 'zone-humidity':
-        new HumidityAccessory(this.api, accessory, this.accessories, tado, deviceHandler, FakeGatoHistoryService);
+        new HumidityAccessory(this.api, accessory, this.accessories, tado, deviceHandler);
         break;
       case 'presence-motion':
-        new MotionAccessory(this.api, accessory, this.accessories, tado, deviceHandler, FakeGatoHistoryService);
+        new MotionAccessory(this.api, accessory, this.accessories, tado, deviceHandler);
         break;
       case 'presence-occupancy':
         new OccupancyAccessory(this.api, accessory, this.accessories, tado, deviceHandler);
         break;
       case 'weather-temperature':
-        new TemperatureAccessory(this.api, accessory, this.accessories, tado, deviceHandler, FakeGatoHistoryService);
+        new TemperatureAccessory(this.api, accessory, this.accessories, tado, deviceHandler);
         break;
       case 'weather-lightbulb':
         new SolarLightbulbAccessory(this.api, accessory, this.accessories, tado);

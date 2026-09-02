@@ -574,11 +574,6 @@ const schema = {
         }
       }
     },
-    'disableHistoryService': {
-      'title': 'Disable History Service',
-      'type': 'boolean',
-      'description': 'Optional: Skip creation of history service.'
-    },
     'preferSiriTemperature': {
       'title': 'Prefer Siri Temperature Changes',
       'type': 'boolean',
@@ -588,7 +583,6 @@ const schema = {
   'layout': [
     'name',
     'debug',
-    'disableHistoryService',
     'preferSiriTemperature',
     'homes.name',
     'homes.polling',

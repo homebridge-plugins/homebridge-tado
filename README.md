@@ -55,7 +55,6 @@ After [Homebridge](https://github.com/nfarina/homebridge) has been installed:
       - [Dummy Switch](#dummy-switch)
     - [Presence Lock](#presence-lock)
     - [Child Lock](#child-lock)
-  - [History Service](#history-service)
   - [Telegram](#telegram)
 - [Supported Clients](#supported-clients)
 - [tado X Compatibility](#tado-x-compatibility)
@@ -146,7 +145,6 @@ Each zone in the config.json with ``"type": "HEATING"`` and ``"easyMode": false`
 - Separate Temperature Sensor (if ``"separateTemperature": true``)
 - Battery state (if ``noBattery: false``)
 - Delay Switch characteristic with timer (if ``"delaySwitch": true``)
-- Elgato EVE history feature (FakeGato)
 
 **Delay Switch**
 The Delay Switch (characteristic) can be used for eg. if you have an automation with `Open Window => Thermostat Off / Close Window => Thermostat On` and you want avoid multiple state changes, u can set ``"delaySwitch": true``in your config and change the timer (in seconds) via a third party app. If setted correctly, the thermostat will wait eg 60 seconds before switching to ON. It can also be used for own automations if you need a switch that turns off automatically after the given perioswithout affecting your thermostats (``"autoOffDelay": true``)
@@ -158,7 +156,6 @@ Each zone in the config.json with ``type: HEATING`` and ``easyMode: true`` is ex
 
 - Active: ON | OFF
 - Target Mode: HEATING
-- **NO** Elgato EVE history feature (FakeGato)
 
 You can also adjust the minimum temperature step ``"minStep"``, minimum temperature value ``"minValue"`` or maximum temperature value ``"maxValue"`` via config.json. 
 
@@ -238,7 +235,6 @@ Each zone in the config.json with `"type": "AIR_CONDITIONING"` is exposed to App
 - Separate Temperature Sensor (if `"separateTemperature": true`)
 - Battery state (if `"noBattery": false`)
 - Delay Switch characteristic with timer (if `"delaySwitch": true`)
-- Elgato EVE history feature (FakeGato)
 
 **AC-Specific Features**
 Air conditioning zones support both heating and cooling modes with dedicated cooling threshold temperature control. Fan speed and swing controls are handled through the tado app, while Apple Home integration focuses on temperature and mode control for optimal compatibility. Note that the RotationSpeed characteristic is not supported for AC units.
@@ -575,23 +571,6 @@ Each device with ``"type": "HEATING"`` and child lock support can be exposed to 
   ...
 ]
 ```
-
-## History Service
-
-Every temperature sensor, humidity sensor, contact sensor, motion sensor, and thermostat provides a **history service** compatible with the **Elgato EVE** app. This allows you to view historical data directly within the EVE interface.
-
-During each polling cycle, all history-enabled accessories are updated with the latest sensor values.  
-These updates are persisted to the local **file storage**, ensuring that the history remains accurate and consistent even across restarts.
-
-**disableHistoryService**
-
-For users who do not require historical tracking, the history feature can be completely disabled by setting the following parameter:
-
-```json
-"disableHistoryService": true
-```
-
-When this option is enabled, no history entries will be recorded or stored, reducing file I/O and memory usage.
 
 ## Telegram
 

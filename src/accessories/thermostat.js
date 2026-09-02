@@ -1,16 +1,12 @@
 import Logger from '../helper/logger.js';
-import moment from 'moment';
-import fs from 'fs-extra';
+import { readFile, writeFile } from 'fs/promises';
 import { TadoUpdateBuffer } from '../helper/update-buffer.js'
 
-const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
-
 export default class ThermostatAccessory {
-  constructor(api, accessory, accessories, tado, deviceHandler, preferSiriTemperature, FakeGatoHistoryService) {
+  constructor(api, accessory, accessories, tado, deviceHandler, preferSiriTemperature) {
     this.api = api;
     this.accessory = accessory;
     this.accessories = accessories;
-    this.FakeGatoHistoryService = FakeGatoHistoryService;
 
     this.deviceHandler = deviceHandler;
     this.tado = tado;
@@ -185,14 +181,6 @@ export default class ThermostatAccessory {
     if (!service.testCharacteristic(this.api.hap.Characteristic.ValvePosition))
       service.addCharacteristic(this.api.hap.Characteristic.ValvePosition);
 
-    this.historyService = this.FakeGatoHistoryService ? new this.FakeGatoHistoryService('thermo', this.accessory, {
-      storage: 'fs',
-      path: this.api.user.storagePath(),
-      disableTimer: true,
-    }) : undefined;
-
-    await timeout(250); //wait for historyService to load
-
     service
       .getCharacteristic(this.api.hap.Characteristic.TemperatureDisplayUnits)
       .onSet(this.changeUnit.bind(this, service));
@@ -201,50 +189,8 @@ export default class ThermostatAccessory {
       .onSet(value => this.updateBuffer.setState(value));
 
     service
-      .getCharacteristic(this.api.hap.Characteristic.CurrentTemperature)
-      .on(
-        'change',
-        this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
-      );
-
-    service
       .getCharacteristic(this.api.hap.Characteristic.TargetTemperature)
-      .onSet(value => this.updateBuffer.setTemperature(value))
-      .on(
-        'change',
-        this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
-      );
-
-    service
-      .getCharacteristic(this.api.hap.Characteristic.ValvePosition)
-      .on(
-        'change',
-        this.deviceHandler.changedStates.bind(this, this.accessory, this.historyService, this.accessory.displayName)
-      );
-
-    if (this.FakeGatoHistoryService && !this.refreshHistoryHandlerRegistered) {
-      this.deviceHandler.refreshHistoryHandlers.push(() => this.refreshHistory(service));
-      this.refreshHistoryHandlerRegistered = true;
-    }
-  }
-
-  refreshHistory(service) {
-    let currentState = service.getCharacteristic(this.api.hap.Characteristic.CurrentHeatingCoolingState).value;
-    let targetState = service.getCharacteristic(this.api.hap.Characteristic.TargetHeatingCoolingState).value;
-    let currentTemp = service.getCharacteristic(this.api.hap.Characteristic.CurrentTemperature).value;
-    let targetTemp = service.getCharacteristic(this.api.hap.Characteristic.TargetTemperature).value;
-
-    let valvePos =
-      currentTemp <= targetTemp && currentState !== 0 && targetState !== 0
-        ? Math.round(targetTemp - currentTemp >= 5 ? 100 : (targetTemp - currentTemp) * 20)
-        : 0;
-
-    if (this.historyService) this.historyService.addEntry({
-      time: moment().unix(),
-      currentTemp: currentTemp,
-      setTemp: targetTemp,
-      valvePosition: valvePos,
-    });
+      .onSet(value => this.updateBuffer.setTemperature(value));
   }
 
   async changeUnit(service, value) {
@@ -271,7 +217,8 @@ export default class ThermostatAccessory {
     }
 
     try {
-      const configJSON = await fs.readJson(this.api.user.storagePath() + '/config.json');
+      const configPath = this.api.user.storagePath() + '/config.json';
+      const configJSON = JSON.parse(await readFile(configPath, 'utf-8'));
 
       for (const i in configJSON.platforms)
         if (configJSON.platforms[i].platform === 'TadoPlatform')
@@ -279,7 +226,7 @@ export default class ThermostatAccessory {
             if (configJSON.platforms[i].homes[home].name === this.accessory.context.config.homeName)
               configJSON.platforms[i].homes[home].temperatureUnit = value ? 'FAHRENHEIT' : 'CELSIUS';
 
-      fs.writeJsonSync(this.api.user.storagePath() + '/config.json', configJSON, { spaces: 4 });
+      await writeFile(configPath, JSON.stringify(configJSON, null, 4));
 
       Logger.info('New temperature unit stored in config', this.accessory.displayName);
     } catch (err) {

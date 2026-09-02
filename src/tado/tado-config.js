@@ -1,4 +1,4 @@
-import fs from 'fs-extra';
+import { readFile, writeFile } from 'fs/promises';
 import Logger from '../helper/logger.js';
 import TadoApi from './tado-api.js';
 import Telegram from '../helper/telegram.js';
@@ -996,12 +996,13 @@ export default {
   },
 
   store: async function (config, storePath) {
-    const configJSON = await fs.readJson(storePath + '/config.json');
+    const configPath = storePath + '/config.json';
+    const configJSON = JSON.parse(await readFile(configPath, 'utf-8'));
 
     for (const i in configJSON.platforms)
       if (configJSON.platforms[i].platform === 'TadoPlatform') configJSON.platforms[i] = config;
 
-    fs.writeJsonSync(storePath + '/config.json', configJSON, { spaces: 4 });
+    await writeFile(configPath, JSON.stringify(configJSON, null, 4));
 
     return;
   },

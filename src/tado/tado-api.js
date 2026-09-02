@@ -1,5 +1,5 @@
 import Logger from '../helper/logger.js';
-import got from 'got';
+import { request } from '../helper/http.js';
 import { join } from 'path';
 import { access, readFile, writeFile } from 'fs/promises';
 
@@ -169,13 +169,13 @@ export default class Tado {
 
   async _refreshToken(old_refresh_token) {
     try {
-      const response = await got.post(`${tado_auth_url}/token`, {
+      const response = await request(`${tado_auth_url}/token`, {
+        method: 'POST',
         form: {
           client_id: this._tadoApiClientId,
           grant_type: "refresh_token",
           refresh_token: old_refresh_token
         },
-        responseType: "json"
       });
       await this._increaseCounter();
       const { access_token, refresh_token } = response.body;
@@ -190,12 +190,12 @@ export default class Tado {
 
   async _authenticateUser() {
     Logger.info('Requesting device authorization...');
-    const authResponse = await got.post(`${tado_auth_url}/device_authorize`, {
+    const authResponse = await request(`${tado_auth_url}/device_authorize`, {
+      method: 'POST',
       form: {
         client_id: this._tadoApiClientId,
         scope: "offline_access"
       },
-      responseType: "json"
     });
     await this._increaseCounter();
     const { device_code, verification_uri_complete } = authResponse.body;
@@ -210,13 +210,13 @@ export default class Tado {
       await new Promise(resolve => setTimeout(resolve, 5000));
       let tokenResponse;
       try {
-        tokenResponse = await got.post(`${tado_auth_url}/token`, {
+        tokenResponse = await request(`${tado_auth_url}/token`, {
+          method: 'POST',
           form: {
             client_id: this._tadoApiClientId,
             device_code: device_code,
             grant_type: "urn:ietf:params:oauth:grant-type:device_code"
           },
-          responseType: "json"
         });
         await this._increaseCounter();
       } catch (_error) {
@@ -243,8 +243,8 @@ export default class Tado {
    * can end up granting tokens for account A without noticing. Verify the
    * identity that actually came back matches the one we asked for, and abort
    * if it doesn't - better a loud failure than a silent account mix-up that
-   * poisons a token file. Uses got directly because apiCall -> getToken would
-   * re-enter the in-flight token promise and deadlock.
+   * poisons a token file. Calls the http helper directly because apiCall ->
+   * getToken would re-enter the in-flight token promise and deadlock.
    */
   async _verifyAuthenticatedIdentity(access_token) {
     if (!this.username) return;
@@ -252,9 +252,8 @@ export default class Tado {
     const url = `${this.tadoApiUrl}/api/v2/me`;
     let me;
     try {
-      const response = await got(url, {
+      const response = await request(url, {
         method: 'GET',
-        responseType: 'json',
         headers: { Authorization: `Bearer ${access_token}` },
         timeout: { request: 15000 }
       });
@@ -300,7 +299,6 @@ export default class Tado {
 
     const options = {
       method,
-      responseType: 'json',
       headers: access_token ?
         { Authorization: `Bearer ${access_token}` } :
         undefined,
@@ -330,7 +328,7 @@ export default class Tado {
     });
 
     try {
-      const response = await got(url, options);
+      const response = await request(url, options);
       await this._increaseCounter();
       Logger.debug('API request success', {
         name: this.name,

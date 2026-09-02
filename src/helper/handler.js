@@ -1,5 +1,5 @@
 import Logger from '../helper/logger.js';
-import moment from 'moment';
+import { addDays, addMonths, addYears, formatDate, startOfMonth } from './date-utils.js';
 import { writeFile } from 'fs/promises';
 import { join } from "path";
 import { randomUUID } from 'crypto';
@@ -18,7 +18,6 @@ export default (api, accessories, config, tado, telegram) => {
       updateZonesRunning: false,
       updateZonesNextQueued: false,
       delayTimer: {},
-      refreshHistoryHandlers: [],
       statesIntervalTime: Math.max(config.polling, 30) * 1000,
       statesIntervalTimeNight: config.nightPolling ? Math.max(config.nightPolling, config.polling, 30) * 1000 : undefined,
       nextPollingTime: 0,
@@ -703,75 +702,27 @@ export default (api, accessories, config, tado, telegram) => {
     }
   }
 
-  async function changedStates(accessory, historyService, replacer, value) {
+  function _nowUnix() {
+    return Math.floor(Date.now() / 1000);
+  }
+
+  function _getActivationReferenceTime(accessory) {
+    if (!accessory.context.activationReferenceTime) {
+      accessory.context.activationReferenceTime = _nowUnix();
+    }
+    return accessory.context.activationReferenceTime;
+  }
+
+  async function changedStates(accessory, replacer, value) {
     if (value.oldValue !== value.newValue) {
       switch (accessory.context.config.subtype) {
-        case 'zone-thermostat': {
-          let currentState = accessory
-            .getService(api.hap.Service.Thermostat)
-            .getCharacteristic(api.hap.Characteristic.CurrentHeatingCoolingState).value;
-          let targetState = accessory
-            .getService(api.hap.Service.Thermostat)
-            .getCharacteristic(api.hap.Characteristic.TargetHeatingCoolingState).value;
-          let currentTemp = accessory
-            .getService(api.hap.Service.Thermostat)
-            .getCharacteristic(api.hap.Characteristic.CurrentTemperature).value;
-          let targetTemp = accessory
-            .getService(api.hap.Service.Thermostat)
-            .getCharacteristic(api.hap.Characteristic.TargetTemperature).value;
-
-          let valvePos =
-            currentTemp <= targetTemp &&
-              currentState !== api.hap.Characteristic.CurrentHeatingCoolingState.OFF &&
-              targetState !== api.hap.Characteristic.TargetHeatingCoolingState.OFF
-              ? Math.round(targetTemp - currentTemp >= 5 ? 100 : (targetTemp - currentTemp) * 20)
-              : 0;
-
-          if (historyService) historyService.addEntry({
-            time: moment().unix(),
-            currentTemp: currentTemp,
-            setTemp: targetTemp,
-            valvePosition: valvePos,
-          });
-
-          break;
-        }
-
-        case 'zone-heatercooler':
-        case 'zone-heatercooler-boiler':
-        case 'zone-heatercooler-ac': {
-          let currentState = accessory
-            .getService(api.hap.Service.HeaterCooler)
-            .getCharacteristic(api.hap.Characteristic.CurrentHeaterCoolerState).value;
-          let currentTemp = accessory
-            .getService(api.hap.Service.HeaterCooler)
-            .getCharacteristic(api.hap.Characteristic.CurrentTemperature).value;
-          let targetTemp = accessory
-            .getService(api.hap.Service.HeaterCooler)
-            .getCharacteristic(api.hap.Characteristic.HeatingThresholdTemperature).value;
-
-          let valvePos =
-            currentTemp <= targetTemp && currentState !== 0
-              ? Math.round(targetTemp - currentTemp >= 5 ? 100 : (targetTemp - currentTemp) * 20)
-              : 0;
-
-          if (historyService) historyService.addEntry({
-            time: moment().unix(),
-            currentTemp: currentTemp,
-            setTemp: targetTemp,
-            valvePosition: valvePos,
-          });
-
-          break;
-        }
-
         case 'zone-window-contact': {
           if (value.newValue) {
             accessory.context.timesOpened = accessory.context.timesOpened || 0;
             accessory.context.timesOpened += 1;
 
-            let lastActivation = moment().unix() - historyService.getInitialTime();
-            let closeDuration = moment().unix() - historyService.getInitialTime();
+            let lastActivation = _nowUnix() - _getActivationReferenceTime(accessory);
+            let closeDuration = _nowUnix() - _getActivationReferenceTime(accessory);
 
             accessory
               .getService(api.hap.Service.ContactSensor)
@@ -788,15 +739,13 @@ export default (api, accessories, config, tado, telegram) => {
               .getCharacteristic(api.hap.Characteristic.ClosedDuration)
               .updateValue(closeDuration);
           } else {
-            let openDuration = moment().unix() - historyService.getInitialTime();
+            let openDuration = _nowUnix() - _getActivationReferenceTime(accessory);
 
             accessory
               .getService(api.hap.Service.ContactSensor)
               .getCharacteristic(api.hap.Characteristic.ClosedDuration)
               .updateValue(openDuration);
           }
-
-          if (historyService) historyService.addEntry({ time: moment().unix(), status: value.newValue ? 1 : 0 });
 
           let dest = value.newValue ? 'opened' : 'closed';
 
@@ -810,15 +759,13 @@ export default (api, accessories, config, tado, telegram) => {
 
         case 'presence-occupancy':
         case 'presence-motion': {
-          if (historyService) {
-            let lastActivation = moment().unix() - historyService.getInitialTime();
+          if (accessory.context.config.subtype === 'presence-motion') {
+            let lastActivation = _nowUnix() - _getActivationReferenceTime(accessory);
 
             accessory
               .getService(api.hap.Service.MotionSensor)
               .getCharacteristic(api.hap.Characteristic.LastActivation)
               .updateValue(lastActivation);
-
-            if (historyService) historyService.addEntry({ time: moment().unix(), status: value.newValue ? 1 : 0 });
           }
 
           let dest;
@@ -837,21 +784,7 @@ export default (api, accessories, config, tado, telegram) => {
           break;
         }
 
-        case 'zone-temperature':
-        case 'weather-temperature': {
-          if (historyService) historyService.addEntry({ time: moment().unix(), temp: value.newValue, humidity: 0, ppm: 0 });
-
-          break;
-        }
-
-        case 'zone-humidity': {
-          if (historyService) historyService.addEntry({ time: moment().unix(), temp: 0, humidity: value.newValue, ppm: 0 });
-
-          break;
-        }
-
         default:
-          Logger.warn('Accessory with unknown subtype wanted to store history data', accessory.displayName);
           break;
       }
     }
@@ -874,19 +807,6 @@ export default (api, accessories, config, tado, telegram) => {
       }
     } catch (error) {
       Logger.error(`Error while updating the tado states file for home ${homeId}: ${error.message || JSON.stringify(error)}`);
-    }
-  }
-
-  async function refreshHistoryServices() {
-    if (!helpers[config.homeId].refreshHistoryHandlers.length) return;
-    try {
-      //wait for fakegato history services to be loaded
-      await timeout(4000);
-      for (const refreshHistory of helpers[config.homeId].refreshHistoryHandlers) {
-        refreshHistory();
-      }
-    } catch (error) {
-      Logger.error(`Error while refreshing history services: ${error.message || JSON.stringify(error)}`);
     }
   }
 
@@ -952,8 +872,6 @@ export default (api, accessories, config, tado, telegram) => {
       if (config.childLock.length) await updateDevices();
     } catch (error) {
       Logger.error(`Failed to get states: ${error.message || JSON.stringify(error)}`);
-    } finally {
-      void refreshHistoryServices();
     }
   }
 
@@ -1682,12 +1600,12 @@ export default (api, accessories, config, tado, telegram) => {
       for (const period of periods) {
         let fromDate =
           period === 'days'
-            ? moment().format('YYYY-MM-DD')
+            ? formatDate(new Date())
             : period === 'months'
-              ? moment().subtract(1, 'days').subtract(1, period).format('YYYY-MM-DD')
-              : moment().add(1, 'months').startOf('month').subtract(1, period).format('YYYY-MM-DD');
+              ? formatDate(addMonths(addDays(new Date(), -1), -1))
+              : formatDate(addYears(startOfMonth(addMonths(new Date(), 1)), -1));
 
-        let toDate = period === 'years' ? moment().format('YYYY-MM-DD') : false;
+        let toDate = period === 'years' ? formatDate(new Date()) : false;
 
         let time = period.substring(0, period.length - 1);
 
@@ -1742,6 +1660,5 @@ export default (api, accessories, config, tado, telegram) => {
     getStates: getStates,
     setStates: setStates,
     changedStates: changedStates,
-    refreshHistoryHandlers: helpers[config.homeId].refreshHistoryHandlers
   };
 };

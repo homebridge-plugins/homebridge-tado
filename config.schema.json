@@ -582,11 +582,6 @@
           }
         }
       },
-      "disableHistoryService": {
-        "title": "Disable History Service",
-        "type": "boolean",
-        "description": "Optional: Skip creation of history service."
-      },
       "preferSiriTemperature": {
         "title": "Prefer Siri Temperature Changes",
         "type": "boolean",
@@ -597,7 +592,6 @@
   "layout": [
     "name",
     "debug",
-    "disableHistoryService",
     "preferSiriTemperature",
     {
       "key": "homes",
