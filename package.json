@@ -36,7 +36,7 @@
     "@homebridge/plugin-ui-utils": "^2.2.6"
   },
   "devDependencies": {
-    "eslint": "^10.9.1",
+    "eslint": "^10.10.0",
     "@eslint/js": "^10.0.1",
     "globals": "^17.12.0"
   }
