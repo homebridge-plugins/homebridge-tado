@@ -163,7 +163,6 @@ async function createCustomSchema(home) {
   customSchemaActive = homebridge.createForm(schema, {
     name: pluginConfig[activeIndex].name,
     debug: pluginConfig[activeIndex].debug,
-    disableHistoryService: pluginConfig[activeIndex].disableHistoryService,
     preferSiriTemperature: pluginConfig[activeIndex].preferSiriTemperature,
     homes: home
   });
@@ -172,7 +171,6 @@ async function createCustomSchema(home) {
 
     pluginConfig[activeIndex].name = config.name;
     pluginConfig[activeIndex].debug = config.debug;
-    pluginConfig[activeIndex].disableHistoryService = config.disableHistoryService;
     pluginConfig[activeIndex].preferSiriTemperature = config.preferSiriTemperature;
     pluginConfig[activeIndex].homes = pluginConfig[activeIndex].homes.map(myHome => {
       if (myHome.name === config.homes.name) {
@@ -316,7 +314,6 @@ async function removeDeviceFromConfig(name) {
 
       if (!pluginConfig[activeIndex].homes.length) {
         delete pluginConfig[activeIndex].debug;
-        delete pluginConfig[activeIndex].disableHistoryService;
         delete pluginConfig[activeIndex].preferSiriTemperature;
       }
 

@@ -37,6 +37,6 @@ export default class OccupancyAccessory {
 
     service
       .getCharacteristic(this.api.hap.Characteristic.OccupancyDetected)
-      .on('change', this.deviceHandler.changedStates.bind(this, this.accessory, false, this.accessory.displayName));
+      .on('change', this.deviceHandler.changedStates.bind(this, this.accessory, this.accessory.displayName));
   }
 }
