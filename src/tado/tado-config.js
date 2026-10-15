@@ -608,6 +608,9 @@ export default {
                     config.modeTimer = zone.modeTimer && zone.modeTimer >= 1 ? zone.modeTimer : 1;
                     config.delaySwitch = zone.delaySwitch;
                     config.autoOffDelay = zone.autoOffDelay;
+                    config.acFanSpeed = zone.type === 'AIR_CONDITIONING' && !!zone.acFanSpeed;
+                    config.acFanModeSwitch = zone.type === 'AIR_CONDITIONING' && !!zone.acFanModeSwitch;
+                    config.acDryModeSwitch = zone.type === 'AIR_CONDITIONING' && !!zone.acDryModeSwitch;
                     config.model = zone.type;
                     config.serialNumber = hashCode(name);
 

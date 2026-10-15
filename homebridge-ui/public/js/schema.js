@@ -472,6 +472,30 @@ const schema = {
                 ],
                 'description': 'Zone Heating type.'
               },
+              'acFanSpeed': {
+                'title': 'Fan Speed',
+                'type': 'boolean',
+                'description': 'If enabled, the fan speed of the AC can be adjusted in Apple Home (RotationSpeed). The highest step is AUTO if supported by your AC.',
+                'condition': {
+                  'functionBody': 'try { return model.homes.zones[arrayIndices[0]].type === \'AIR_CONDITIONING\' } catch(e){ return false }'
+                }
+              },
+              'acFanModeSwitch': {
+                'title': 'Fan Mode Switch',
+                'type': 'boolean',
+                'description': 'If enabled, an additional switch will be added to the AC accessory to turn on the FAN mode. Turning it off turns off the AC.',
+                'condition': {
+                  'functionBody': 'try { return model.homes.zones[arrayIndices[0]].type === \'AIR_CONDITIONING\' } catch(e){ return false }'
+                }
+              },
+              'acDryModeSwitch': {
+                'title': 'Dry Mode Switch',
+                'type': 'boolean',
+                'description': 'If enabled, an additional switch will be added to the AC accessory to turn on the DRY mode. Turning it off turns off the AC.',
+                'condition': {
+                  'functionBody': 'try { return model.homes.zones[arrayIndices[0]].type === \'AIR_CONDITIONING\' } catch(e){ return false }'
+                }
+              },
               'boilerTempSupport': {
                 'title': 'Boiler (Hot Water) with temperature adjustment',
                 'type': 'boolean',
@@ -662,6 +686,21 @@ const schema = {
                   'items': [
                     'homes.zones[].boilerTempSupport',
                     'homes.zones[].accTypeBoiler'
+                  ]
+                },
+                {
+                  'title': 'Air Conditioning',
+                  'orderable': false,
+                  'expandable': true,
+                  'expanded': false,
+                  'type': 'section',
+                  'condition': {
+                    'functionBody': 'try { return model.homes.zones[arrayIndices[0]].type === \'AIR_CONDITIONING\' } catch(e){ return false }'
+                  },
+                  'items': [
+                    'homes.zones[].acFanSpeed',
+                    'homes.zones[].acFanModeSwitch',
+                    'homes.zones[].acDryModeSwitch'
                   ]
                 },
                 {

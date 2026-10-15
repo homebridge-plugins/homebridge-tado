@@ -86,7 +86,6 @@ export default class HeaterCoolerAccessory {
   async getService() {
     let service = this.accessory.getService(this.api.hap.Service.HeaterCooler);
     let serviceThermostat = this.accessory.getService(this.api.hap.Service.Thermostat);
-    let serviceSwitch = this.accessory.getService(this.api.hap.Service.Switch);
     let serviceFaucet = this.accessory.getService(this.api.hap.Service.Valve);
 
     if (serviceThermostat) {
@@ -94,10 +93,17 @@ export default class HeaterCoolerAccessory {
       this.accessory.removeService(serviceThermostat);
     }
 
-    if (serviceSwitch) {
-      Logger.info('Removing Switch service', this.accessory.displayName);
-      this.accessory.removeService(serviceSwitch);
-    }
+    // Remove switch services except the AC mode switches (handled below)
+    this.accessory.services
+      .filter(
+        (serviceSwitch) =>
+          serviceSwitch.UUID === this.api.hap.Service.Switch.UUID &&
+          !['FanModeSwitch', 'DryModeSwitch'].includes(serviceSwitch.subtype)
+      )
+      .forEach((serviceSwitch) => {
+        Logger.info('Removing Switch service', this.accessory.displayName);
+        this.accessory.removeService(serviceSwitch);
+      });
 
     if (serviceFaucet) {
       Logger.info('Removing Faucet service', this.accessory.displayName);
@@ -277,9 +283,22 @@ export default class HeaterCoolerAccessory {
     if (!service.testCharacteristic(this.api.hap.Characteristic.ValvePosition))
       service.addCharacteristic(this.api.hap.Characteristic.ValvePosition);
 
-    // Remove RotationSpeed characteristic for all units (fan speed not supported)
-    if (service.testCharacteristic(this.api.hap.Characteristic.RotationSpeed))
+    const isAC = this.accessory.context.config.type === 'AIR_CONDITIONING';
+
+    // Fan speed is only supported for AIR_CONDITIONING units
+    if (isAC && this.accessory.context.config.acFanSpeed) {
+      if (!service.testCharacteristic(this.api.hap.Characteristic.RotationSpeed))
+        service.addCharacteristic(this.api.hap.Characteristic.RotationSpeed);
+
+      service
+        .getCharacteristic(this.api.hap.Characteristic.RotationSpeed)
+        .onSet((value) => this.deviceHandler.setStates(this.accessory, this.accessories, 'FanSpeed', value));
+    } else if (service.testCharacteristic(this.api.hap.Characteristic.RotationSpeed)) {
       service.removeCharacteristic(service.getCharacteristic(this.api.hap.Characteristic.RotationSpeed));
+    }
+
+    this.handleACModeSwitch('FanMode', 'Fan', isAC && this.accessory.context.config.acFanModeSwitch);
+    this.handleACModeSwitch('DryMode', 'Dry', isAC && this.accessory.context.config.acDryModeSwitch);
 
     service
       .getCharacteristic(this.api.hap.Characteristic.Active)
@@ -295,5 +314,30 @@ export default class HeaterCoolerAccessory {
         .getCharacteristic(this.api.hap.Characteristic.CoolingThresholdTemperature)
         .onSet(value => this.updateBuffer.setTemperature(value));
     }
+  }
+
+  handleACModeSwitch(target, name, enabled) {
+    let serviceSwitch = this.accessory.getServiceById(this.api.hap.Service.Switch, target + 'Switch');
+
+    if (!enabled) {
+      if (serviceSwitch) {
+        Logger.info(`Removing ${name} Switch service`, this.accessory.displayName);
+        this.accessory.removeService(serviceSwitch);
+      }
+      return;
+    }
+
+    if (!serviceSwitch) {
+      Logger.info(`Adding ${name} Switch service`, this.accessory.displayName);
+      serviceSwitch = this.accessory.addService(
+        this.api.hap.Service.Switch,
+        this.accessory.displayName + ' ' + name,
+        target + 'Switch'
+      );
+    }
+
+    serviceSwitch
+      .getCharacteristic(this.api.hap.Characteristic.On)
+      .onSet((value) => this.deviceHandler.setStates(this.accessory, this.accessories, target, value));
   }
 }

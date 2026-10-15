@@ -2,6 +2,7 @@ import Logger from '../helper/logger.js';
 import { request } from '../helper/http.js';
 import { join } from 'path';
 import { access, readFile, writeFile } from 'fs/promises';
+import { getACFanLevels, getACFanSettingKey, getACFanSteps } from '../helper/ac-utils.js';
 
 const tado_url = "https://my.tado.com";
 const tado_auth_url = "https://login.tado.com/oauth2";
@@ -33,6 +34,7 @@ export default class Tado {
     this._tadoAuthenticationCallback = undefined;
     this._counterActivated = counterActivated?.toString() === "true";
     this._counterInitPromise = this._initCounter();
+    this._zoneCapabilitiesCache = {};
     Logger.debug("API successfull initialized", this.name);
   }
 
@@ -444,6 +446,20 @@ export default class Tado {
     return this.apiCall(`/api/v2/homes/${home_id}/zones/${zone_id}/capabilities`);
   }
 
+  // Capabilities do not change at runtime, so only request them once per zone
+  async getZoneCapabilitiesCached(home_id, zone_id) {
+    const key = `${home_id}-${zone_id}`;
+
+    if (!this._zoneCapabilitiesCache[key]) {
+      this._zoneCapabilitiesCache[key] = this.getZoneCapabilities(home_id, zone_id).catch((error) => {
+        delete this._zoneCapabilitiesCache[key];
+        throw error;
+      });
+    }
+
+    return this._zoneCapabilitiesCache[key];
+  }
+
   async getZoneOverlay(home_id, zone_id) {
     return this.apiCall(`/api/v2/homes/${home_id}/zones/${zone_id}/overlay`).catch((error) => {
       if (error.response.status === 404) {
@@ -517,10 +533,8 @@ export default class Tado {
     return this.apiCall(`/api/v2/homes/${home_id}/zones/${zone_id}/overlay`, 'PUT', config);
   }
 
-  async setACZoneOverlay(home_id, zone_id, power, mode, temperature, fanSpeed, swing, termination, tempUnit) {
-    // Note: fanSpeed parameter is kept for compatibility but ignored for AIR_CONDITIONING units
-
-    // Get current zone state to understand the structure
+  async setACZoneOverlay(home_id, zone_id, power, mode, temperature, fanLevel, termination, tempUnit) {
+    // Get current zone state to preserve settings made in the tado app
     let zone_state;
     try {
       zone_state = await this.getZoneState(home_id, zone_id);
@@ -528,36 +542,68 @@ export default class Tado {
       Logger.warn(`Could not get zone state: ${error.message}`, this.name);
     }
 
+    let capabilities;
+    try {
+      capabilities = await this.getZoneCapabilitiesCached(home_id, zone_id);
+    } catch (error) {
+      Logger.warn(`Could not get zone capabilities: ${error.message}`, this.name);
+    }
+
+    const currentSetting = zone_state && zone_state.setting ? zone_state.setting : {};
+
+    // Build setting based on AirConditioningZoneSettingsBase schema
+    const setting = { type: 'AIR_CONDITIONING' };
+
     // Preserve existing termination settings if present
     const config = {
-      setting: zone_state && zone_state.setting ? { ...zone_state.setting } : {},
       termination: zone_state && zone_state.overlay && zone_state.overlay.termination ? { ...zone_state.overlay.termination } : {},
     };
 
     // Fix: Use case-insensitive comparison and handle both 'ON' and 'on'
     if (power && power.toString().toLowerCase() === 'on') {
-      config.setting.power = 'ON';
-      config.setting.mode = mode || 'COOL';
+      setting.power = 'ON';
+      setting.mode = mode || 'COOL';
 
-      if (temperature && !isNaN(temperature)) {
+      const modeCapabilities = capabilities ? capabilities[setting.mode] : undefined;
+      // FAN and DRY modes usually have no adjustable temperature
+      const supportsTemperature = !modeCapabilities || !!modeCapabilities.temperatures;
+
+      if (supportsTemperature && temperature && !isNaN(temperature)) {
         if (tempUnit && tempUnit.toLowerCase() === 'fahrenheit') {
           temperature = ((temperature - 32) * 5) / 9;
         }
 
-        config.setting.temperature = {
-          celsius: temperature,
-          fahrenheit: Math.round((temperature * 1.8) + 32)
-        };
+        setting.temperature = { celsius: temperature };
+      } else if (supportsTemperature && currentSetting.temperature && currentSetting.temperature.celsius !== undefined) {
+        setting.temperature = { celsius: currentSetting.temperature.celsius };
       }
 
-      // Fan speed not supported for AIR_CONDITIONING units
+      const fanSettingKey = getACFanSettingKey(modeCapabilities);
 
-      // Set swing if provided
-      if (swing !== undefined && swing !== null) {
-        config.setting.swing = swing;
+      if (fanSettingKey) {
+        const fanLevels = getACFanLevels(modeCapabilities);
+        const newFanLevel = [fanLevel, currentSetting[fanSettingKey]].find((level) => fanLevels.includes(level));
+
+        if (newFanLevel) {
+          setting[fanSettingKey] = newFanLevel;
+        } else if (setting.mode === 'FAN' || setting.mode === 'DRY') {
+          // FAN/DRY need a fan level, prefer AUTO, otherwise the lowest level
+          setting[fanSettingKey] = fanLevels.includes('AUTO') ? 'AUTO' : getACFanSteps(modeCapabilities)[0];
+        }
+      }
+
+      // Keep swing/light settings made in the tado app
+      const preservedSettings = { swing: 'swings', verticalSwing: 'verticalSwing', horizontalSwing: 'horizontalSwing', light: 'light' };
+
+      for (const [settingKey, capabilityKey] of Object.entries(preservedSettings)) {
+        if (modeCapabilities && Array.isArray(modeCapabilities[capabilityKey]) && modeCapabilities[capabilityKey].includes(currentSetting[settingKey])) {
+          setting[settingKey] = currentSetting[settingKey];
+        }
       }
     } else {
-      config.setting.power = 'OFF';
+      setting.power = 'OFF';
+      // Keep previous behaviour: send the current mode along with OFF
+      if (currentSetting.mode) setting.mode = currentSetting.mode;
     }
 
     // Handle termination settings
@@ -573,25 +619,8 @@ export default class Tado {
       config.termination.type = 'MANUAL';
     }
 
-    // Validate that config is not empty before making API call
-    if (!config.setting || Object.keys(config.setting).length === 0) {
-      Logger.error(`Config setting is empty! Power: ${power}, Mode: ${mode}, Temp: ${temperature}`, this.name);
-      throw new Error('AC overlay configuration is empty');
-    }
-
-    // Call API with full AC config
-    // Build payload based on AirConditioningZoneSettingsBase schema
     const payload = {
-      setting: {
-        type: 'AIR_CONDITIONING',
-        power: config.setting.power,
-        mode: config.setting.mode,
-        // Set temperature if ON
-        ...(config.setting.power === 'ON' && config.setting.temperature && config.setting.temperature.celsius !== undefined
-          ? { temperature: { celsius: config.setting.temperature.celsius } }
-          : {}),
-        // Fan speed removed for AIR_CONDITIONING units
-      },
+      setting,
       termination: {
         // AIR_CONDITIONING does not have "type" key in termination
         ...(config.termination.type === 'TIMER' && config.termination.durationInSeconds !== undefined

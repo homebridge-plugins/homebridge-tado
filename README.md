@@ -235,9 +235,18 @@ Each zone in the config.json with `"type": "AIR_CONDITIONING"` is exposed to App
 - Separate Temperature Sensor (if `"separateTemperature": true`)
 - Battery state (if `"noBattery": false`)
 - Delay Switch characteristic with timer (if `"delaySwitch": true`)
+- Fan Speed (if `"acFanSpeed": true`)
+- Fan Mode Switch (if `"acFanModeSwitch": true`)
+- Dry Mode Switch (if `"acDryModeSwitch": true`)
 
 **AC-Specific Features**
-Air conditioning zones support both heating and cooling modes with dedicated cooling threshold temperature control. Fan speed and swing controls are handled through the tado app, while Apple Home integration focuses on temperature and mode control for optimal compatibility. Note that the RotationSpeed characteristic is not supported for AC units.
+Air conditioning zones support both heating and cooling modes with dedicated cooling threshold temperature control. Swing and light settings made in the tado app are preserved when changing the AC from Apple Home.
+
+- **acFanSpeed**: Adds a fan speed slider (RotationSpeed) to the AC accessory. The fan levels supported by your AC (e.g. low / medium / high) are spread evenly over the slider; the highest step is `AUTO` if your AC supports it. If the AC is off, the selected fan level is used the next time it is turned on.
+- **acFanModeSwitch**: Adds a switch to the AC accessory which turns on the `FAN` mode. Turning the switch off turns off the AC.
+- **acDryModeSwitch**: Adds a switch to the AC accessory which turns on the `DRY` mode. Turning the switch off turns off the AC.
+
+If no fan level is selected, `FAN` and `DRY` mode use `AUTO` (or the lowest level if `AUTO` is not supported). While the AC is in `FAN` or `DRY` mode, the HeaterCooler is shown as idle. Changing the temperature or target mode of the HeaterCooler switches the AC back to heating/cooling.
 
 **Mode / Mode Timer**
 `mode` for the commands to be sent with. can be 'MANUAL' for manual control until ended by the user, 'AUTO' for manual control until next schedule change in tado° app OR 'TIMER' for manual control until timer ends. `modeTimer` for the `MANUAL` mode in minutes.
@@ -262,7 +271,10 @@ You can also adjust the minimum temperature step `"minStep"`, minimum temperatur
         "separateTemperature": false,
         "separateHumidity": true,
         "minStep": 1,
-        "noBattery": false
+        "noBattery": false,
+        "acFanSpeed": true,
+        "acFanModeSwitch": true,
+        "acDryModeSwitch": true
       }
       ...
     ]

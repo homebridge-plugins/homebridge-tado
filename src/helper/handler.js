@@ -3,6 +3,7 @@ import { addDays, addMonths, addYears, formatDate, startOfMonth } from './date-u
 import { writeFile } from 'fs/promises';
 import { join } from "path";
 import { randomUUID } from 'crypto';
+import { fanLevelToRotationSpeed, getACFanSteps, rotationSpeedToFanLevel } from './ac-utils.js';
 
 const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
 const helpers = {};
@@ -166,9 +167,12 @@ export default (api, accessories, config, tado, telegram) => {
     return true;
   }
 
-  async function _setACZoneOverlay(accessory, power, acMode, temp, fanSpeed, swing, mode) {
+  async function _setACZoneOverlay(accessory, power, acMode, temp, mode) {
     const zoneId = await _getZoneIdForAccessory(accessory);
     if (!_hasZoneId(zoneId)) return false;
+
+    // Without fan speed control, tado keeps the fan level set in the tado app
+    const fanLevel = accessory.context.config.acFanSpeed ? accessory.context.acFanLevel : null;
 
     await tado.setACZoneOverlay(
       config.homeId,
@@ -176,13 +180,89 @@ export default (api, accessories, config, tado, telegram) => {
       power,
       acMode,
       _normalizeTemperatureForAccessory(accessory, temp),
-      fanSpeed,
-      swing,
+      fanLevel,
       mode,
       accessory.context.config.temperatureUnit
     );
 
+    // Keep the Fan/Dry mode switches in sync with the new AC mode
+    const newMode = power === 'ON' ? acMode : undefined;
+    accessory.context.acMode = newMode;
+
+    const fanModeSwitch = accessory.getServiceById(api.hap.Service.Switch, 'FanModeSwitch');
+    if (fanModeSwitch) fanModeSwitch.getCharacteristic(api.hap.Characteristic.On).updateValue(newMode === 'FAN');
+
+    const dryModeSwitch = accessory.getServiceById(api.hap.Service.Switch, 'DryModeSwitch');
+    if (dryModeSwitch) dryModeSwitch.getCharacteristic(api.hap.Characteristic.On).updateValue(newMode === 'DRY');
+
     return true;
+  }
+
+  async function _getACCapabilities(accessory) {
+    const zoneId = await _getZoneIdForAccessory(accessory);
+    if (!_hasZoneId(zoneId)) return;
+
+    try {
+      return await tado.getZoneCapabilitiesCached(config.homeId, zoneId);
+    } catch (error) {
+      Logger.warn(`Could not get AC capabilities: ${error.message || JSON.stringify(error)}`, accessory.displayName);
+    }
+  }
+
+  async function _setACExtraState(accessory, target, value) {
+    const service = accessory.getService(api.hap.Service.HeaterCooler);
+    const targetState = service.getCharacteristic(api.hap.Characteristic.TargetHeaterCoolerState).value;
+    const tempCharacteristic =
+      targetState === 1
+        ? api.hap.Characteristic.HeatingThresholdTemperature
+        : api.hap.Characteristic.CoolingThresholdTemperature;
+    const temp = parseFloat(service.getCharacteristic(tempCharacteristic).value.toFixed(2));
+
+    const mode =
+      accessory.context.config.mode === 'TIMER'
+        ? (accessory.context.config.modeTimer || 30) * 60
+        : accessory.context.config.mode;
+
+    const capabilities = await _getACCapabilities(accessory);
+
+    if (target === 'FanSpeed') {
+      if (!value) return false; // turning off is handled by the Active characteristic
+
+      // acMode is only set while the AC is on (e.g. right after turning on the Fan/Dry switch)
+      const active = service.getCharacteristic(api.hap.Characteristic.Active).value || accessory.context.acMode;
+      const acMode = accessory.context.acMode || (targetState === 1 ? 'HEAT' : 'COOL');
+      const steps = getACFanSteps(capabilities && capabilities[acMode]);
+      const fanLevel = rotationSpeedToFanLevel(steps, value);
+
+      if (!fanLevel) {
+        Logger.warn(`Fan speed is not supported in ${acMode} mode`, accessory.displayName);
+        return false;
+      }
+
+      accessory.context.acFanLevel = fanLevel;
+      setTimeout(() => {
+        service.getCharacteristic(api.hap.Characteristic.RotationSpeed).updateValue(fanLevelToRotationSpeed(steps, fanLevel));
+      }, 500);
+
+      // AC is off, fan level will be used when the AC is turned on
+      if (!active) return false;
+
+      return await _setACZoneOverlay(accessory, 'ON', acMode, temp, mode);
+    }
+
+    // FanMode / DryMode switches
+    const acMode = target === 'FanMode' ? 'FAN' : 'DRY';
+    const switchService = accessory.getServiceById(api.hap.Service.Switch, target + 'Switch');
+
+    if (!value) return await _setACZoneOverlay(accessory, 'OFF', acMode, temp, mode);
+
+    if (capabilities && !capabilities[acMode]) {
+      Logger.warn(`${acMode} mode is not supported by this AC`, accessory.displayName);
+      setTimeout(() => switchService.getCharacteristic(api.hap.Characteristic.On).updateValue(false), 500);
+      return false;
+    }
+
+    return await _setACZoneOverlay(accessory, 'ON', acMode, temp, mode);
   }
 
   async function _clearZoneOverlay(accessory) {
@@ -202,6 +282,11 @@ export default (api, accessories, config, tado, telegram) => {
       helpers[config.homeId].activeSettingStateRuns[runId] = true;
       value = typeof value === 'number' ? parseFloat(value.toFixed(2)) : value;
       Logger.info(target + ': ' + value, accessory.displayName);
+
+      if (accessory.context.config.subtype === 'zone-heatercooler-ac' && ['FanSpeed', 'FanMode', 'DryMode'].includes(target)) {
+        zoneUpdated = await _setACExtraState(accessory, target, value);
+        return;
+      }
 
       switch (accessory.context.config.subtype) {
         case 'zone-thermostat':
@@ -249,8 +334,6 @@ export default (api, accessories, config, tado, telegram) => {
                   power,
                   'COOL', // Default AC mode for OFF state
                   temp,
-                  null, // No fan speed for AC units
-                  'OFF', // Default swing
                   mode
                 );
               } else {
@@ -309,8 +392,6 @@ export default (api, accessories, config, tado, telegram) => {
                     power,
                     acMode,
                     temp,
-                    null, // No fan speed for AC units
-                    'OFF', // Default swing
                     mode
                   );
                 } else {
@@ -410,8 +491,6 @@ export default (api, accessories, config, tado, telegram) => {
                 power,
                 acMode,
                 temp,
-                null, // No fan speed for AC units
-                'OFF', // Default swing
                 mode
               );
             } else {
@@ -445,8 +524,6 @@ export default (api, accessories, config, tado, telegram) => {
               power,
               'COOL', // Default AC mode for switch/faucet
               temp,
-              null, // No fan speed for AC units
-              'OFF', // Default swing
               mode
             );
           } else {
@@ -1176,6 +1253,12 @@ export default (api, accessories, config, tado, telegram) => {
 
             // Map AC modes to Apple Home states
             switch (acMode.toUpperCase()) {
+              case 'FAN':
+              case 'DRY':
+                // No HeaterCooler equivalent, shown via the Fan/Dry mode switches
+                targetState = 2;
+                currentState = 1; // Idle
+                break;
               case 'HEAT':
                 targetState = 1; // Heating
                 currentState = tempEqual ? 1 : (currentTemp < targetTemp ? 2 : 1); // Idle or Heating
@@ -1206,6 +1289,18 @@ export default (api, accessories, config, tado, telegram) => {
         );
         const switchAccessory = accessories.filter((acc) => acc && acc.context.config.subtype === 'zone-switch');
         const faucetAccessory = accessories.filter((acc) => acc && acc.context.config.subtype === 'zone-faucet');
+
+        let acCapabilities;
+        if (
+          zone.type === 'AIR_CONDITIONING' &&
+          heaterAccessory.some((acc) => acc.displayName.includes(zone.name) && acc.context.config.acFanSpeed)
+        ) {
+          try {
+            acCapabilities = await tado.getZoneCapabilitiesCached(config.homeId, zone.id);
+          } catch (error) {
+            Logger.warn(`Could not get AC capabilities: ${error.message || JSON.stringify(error)}`, zone.name);
+          }
+        }
 
         if (heaterAccessory.length) {
           heaterAccessory.forEach((acc) => {
@@ -1267,7 +1362,27 @@ export default (api, accessories, config, tado, telegram) => {
                 }
               }
 
-              // Fan speed polling removed for AIR_CONDITIONING zones
+              if (zone.type === 'AIR_CONDITIONING') {
+                const acMode = active ? zoneState.setting.mode : undefined;
+                acc.context.acMode = acMode;
+
+                const fanModeSwitch = acc.getServiceById(api.hap.Service.Switch, 'FanModeSwitch');
+                if (fanModeSwitch) fanModeSwitch.getCharacteristic(api.hap.Characteristic.On).updateValue(acMode === 'FAN');
+
+                const dryModeSwitch = acc.getServiceById(api.hap.Service.Switch, 'DryModeSwitch');
+                if (dryModeSwitch) dryModeSwitch.getCharacteristic(api.hap.Characteristic.On).updateValue(acMode === 'DRY');
+
+                const fanLevel = zoneState.setting.fanLevel || zoneState.setting.fanSpeed;
+
+                if (acMode && fanLevel && acCapabilities && service.testCharacteristic(api.hap.Characteristic.RotationSpeed)) {
+                  const rotationSpeed = fanLevelToRotationSpeed(getACFanSteps(acCapabilities[acMode]), fanLevel);
+
+                  if (rotationSpeed !== undefined) {
+                    acc.context.acFanLevel = fanLevel;
+                    service.getCharacteristic(api.hap.Characteristic.RotationSpeed).updateValue(rotationSpeed);
+                  }
+                }
+              }
 
               // Update humidity for all zones that support it
               if (!isNaN(humidity) && service.testCharacteristic(api.hap.Characteristic.CurrentRelativeHumidity)) {

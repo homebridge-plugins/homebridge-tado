@@ -1,5 +1,12 @@
 # Changelog
 
+# v10.1.0 - 2026-10-15
+- Add optional fan speed control (RotationSpeed) for `AIR_CONDITIONING` zones via `acFanSpeed`, using the fan levels supported by the AC (#175)
+- Add optional Fan Mode switch for `AIR_CONDITIONING` zones via `acFanModeSwitch` to turn on the AC's `FAN` mode (#174)
+- Add optional Dry Mode switch for `AIR_CONDITIONING` zones via `acDryModeSwitch` to turn on the AC's `DRY` mode (#168)
+- Improve: AC overlays now respect the zone capabilities (no temperature for modes without temperature support) and preserve fan, swing and light settings made in the tado app
+- Improve: Zone capabilities are cached and only requested once per zone
+
 # v10.0.0 - 2026-09-11
 - **Breaking:** Removed the Elgato EVE history feature (FakeGato). Temperature/humidity/contact/motion/thermostat accessories no longer expose history graphs to the Eve app, the `disableHistoryService` config option is gone, and history data is no longer persisted to disk. All other characteristics (including `LastActivation`, `TimesOpened`, and window-open Telegram notifications) keep working as before.
 - Removed every remaining third-party runtime dependency (`got`, `form-data`, `fs-extra`, `moment`) in favor of Node.js 22's built-in `fetch`, `FormData`, and `fs`/`Date` APIs, reducing the plugin's footprint and third-party attack surface for the long term.
