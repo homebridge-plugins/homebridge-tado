@@ -1,7 +1,7 @@
 import Logger from '../helper/logger.js';
 import { request } from '../helper/http.js';
 import { join } from 'path';
-import { access, readFile, writeFile } from 'fs/promises';
+import { access, readFile, rename, stat, unlink, writeFile } from 'fs/promises';
 import { getACFanLevels, getACFanSettingKey, getACFanSteps } from '../helper/ac-utils.js';
 
 const tado_url = "https://my.tado.com";
@@ -15,6 +15,16 @@ function _getSimpleHash(str) {
     hash = (hash << 5) - hash + char;
   }
   return (hash >>> 0).toString(36).padStart(7, '0');
+}
+
+function _sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+//tado answers an invalid/expired refresh token with 400 (invalid_grant) or 401
+function _isTokenRejected(error) {
+  const statusCode = error?.response?.statusCode;
+  return statusCode === 400 || statusCode === 401;
 }
 
 export default class Tado {
@@ -142,14 +152,50 @@ export default class Tado {
   }
 
   async _retrieveToken() {
-    try {
-      if (this._tadoBearerToken.refresh_token) return this._refreshToken(this._tadoBearerToken.refresh_token);
-      await access(this._tadoInternalTokenFilePath);
-      const refresh_token = await this._retrieveRefreshTokenFromInternalFile();
-      return this._refreshToken(refresh_token);
-    } catch (_err) {
-      return this._authenticateUser();
+    let refresh_token = this._tadoBearerToken.refresh_token;
+    if (!refresh_token) {
+      try {
+        await access(this._tadoInternalTokenFilePath);
+        refresh_token = await this._retrieveRefreshTokenFromInternalFile();
+      } catch (_err) {
+        //no usable token file => start device authorization
+        return this._authenticateUser();
+      }
     }
+    return this._refreshToken(refresh_token);
+  }
+
+  async _writeInternalTokenFile(access_token, refresh_token) {
+    //write to a temp file first and rename it, so a crash while writing can never leave a corrupt token file
+    const tmpFilePath = `${this._tadoInternalTokenFilePath}.${process.pid}.tmp`;
+    try {
+      await writeFile(tmpFilePath, JSON.stringify({ access_token, refresh_token }), { encoding: "utf8", mode: 0o600 });
+      await rename(tmpFilePath, this._tadoInternalTokenFilePath);
+    } catch (error) {
+      await unlink(tmpFilePath).catch(() => { });
+      throw error;
+    }
+  }
+
+  async _storeToken(access_token, refresh_token) {
+    //keep the new token in memory first: the old refresh token is already invalid at this point
+    this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
+    try {
+      await this._writeInternalTokenFile(access_token, refresh_token);
+    } catch (error) {
+      Logger.error(`Failed to write token file ${this._tadoInternalTokenFilePath}: ${error.message || JSON.stringify(error)}`);
+    }
+  }
+
+  //called after a 401, returns whether the request should be retried with a renewed access token
+  _invalidateRejectedAccessToken(rejected_access_token) {
+    const token = this._tadoBearerToken;
+    //another call renewed the token in the meantime => retry with the current one
+    if (token?.access_token !== rejected_access_token) return true;
+    //a brand new token being rejected is no expiry issue, renewing it would only cause a refresh on every call
+    if ((Date.now() - token.timestamp) < 60 * 1000) return false;
+    token.timestamp = 0;
+    return true;
   }
 
   async _retrieveRefreshTokenFromInternalFile() {
@@ -163,31 +209,37 @@ export default class Tado {
         Logger.warn(`Failed to load from internal file (attempt ${attempt} of ${maxRetries}):`, error);
       }
       if (attempt < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await _sleep(1000);
       }
     }
     throw new Error(`Failed to load from internal file after ${maxRetries} attempts.`);
   }
 
   async _refreshToken(old_refresh_token) {
+    let response;
     try {
-      const response = await request(`${tado_auth_url}/token`, {
+      response = await request(`${tado_auth_url}/token`, {
         method: 'POST',
         form: {
           client_id: this._tadoApiClientId,
           grant_type: "refresh_token",
           refresh_token: old_refresh_token
         },
+        timeout: { request: 30000 }
       });
-      await this._increaseCounter();
-      const { access_token, refresh_token } = response.body;
-      if (!access_token || !refresh_token) throw new Error("Empty access/refresh token.");
-      await writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
-      this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
     } catch (error) {
-      Logger.warn(`Error while refreshing token: ${error.message || JSON.stringify(error)}`);
+      //network errors, timeouts, 5xx etc. => keep the refresh token and try again with the next call
+      if (!_isTokenRejected(error)) throw new Error(`Error while refreshing token: ${error.message || JSON.stringify(error)}`);
+      Logger.warn(`Refresh token was rejected by tado: ${error.message || JSON.stringify(error)}`);
       return this._authenticateUser();
     }
+    await this._increaseCounter();
+    const { access_token, refresh_token } = response.body || {};
+    if (!access_token || !refresh_token) {
+      Logger.warn("Error while refreshing token: Empty access/refresh token.");
+      return this._authenticateUser();
+    }
+    await this._storeToken(access_token, refresh_token);
   }
 
   async _authenticateUser() {
@@ -198,18 +250,20 @@ export default class Tado {
         client_id: this._tadoApiClientId,
         scope: "offline_access"
       },
+      timeout: { request: 15000 }
     });
     await this._increaseCounter();
-    const { device_code, verification_uri_complete } = authResponse.body;
+    const { device_code, verification_uri_complete, interval, expires_in } = authResponse.body || {};
     if (!device_code) throw new Error("Failed to retrieve device code.");
     Logger.info(
       `Open the following URL and sign in as "${this.username}" to authorize the plugin (tip: if your browser is signed in to tado.com with a different account, use a private/incognito window). ` +
       `URL: ${verification_uri_complete}`
     );
     if (this._tadoAuthenticationCallback) this._tadoAuthenticationCallback(verification_uri_complete);
-    const maxRetries = 30;
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      await new Promise(resolve => setTimeout(resolve, 5000));
+    let pollInterval = (Number(interval) > 0 ? Number(interval) : 5) * 1000;
+    const deadline = Date.now() + (Number(expires_in) > 0 ? Number(expires_in) : 300) * 1000;
+    while (Date.now() + pollInterval < deadline) {
+      await _sleep(pollInterval);
       let tokenResponse;
       try {
         tokenResponse = await request(`${tado_auth_url}/token`, {
@@ -219,24 +273,29 @@ export default class Tado {
             device_code: device_code,
             grant_type: "urn:ietf:params:oauth:grant-type:device_code"
           },
+          timeout: { request: 15000 }
         });
         await this._increaseCounter();
-      } catch (_error) {
-        //authentication still pending -> response code 400
+      } catch (error) {
+        //authorization_pending (400) and network errors => keep polling
+        const oauthError = error.response?.body?.error;
+        if (oauthError === 'slow_down') pollInterval += 5000;
+        else if (oauthError === 'access_denied' || oauthError === 'expired_token') {
+          throw new Error(`Device authorization failed: ${oauthError}`);
+        }
       }
       if (tokenResponse?.body) {
         const { access_token, refresh_token } = tokenResponse.body;
         if (access_token && refresh_token) {
           await this._verifyAuthenticatedIdentity(access_token);
-          await writeFile(this._tadoInternalTokenFilePath, JSON.stringify({ access_token, refresh_token }));
-          this._tadoBearerToken = { access_token, refresh_token, timestamp: Date.now() };
+          await this._storeToken(access_token, refresh_token);
           Logger.info("Authentication successful!");
           return;
         }
       }
       Logger.info("Waiting for confirmation...");
     }
-    throw new Error(`Failed to authenticate after ${maxRetries} attempts.`);
+    throw new Error("Device authorization timed out.");
   }
 
   /* 
@@ -279,31 +338,32 @@ export default class Tado {
     const maxRetries = 3;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const data = await readFile(this._tadoExternalTokenFilePath, 'utf8');
+        const [data, stats] = await Promise.all([
+          readFile(this._tadoExternalTokenFilePath, 'utf8'),
+          stat(this._tadoExternalTokenFilePath)
+        ]);
         const json = JSON.parse(data);
         if (json.access_token) {
-          this._tadoBearerToken = { access_token: json.access_token, refresh_token: undefined, timestamp: Date.now() };
+          //the token is as old as the file, not as old as this read => re-read the file once it is older than 9 minutes
+          this._tadoBearerToken = { access_token: json.access_token, refresh_token: undefined, timestamp: Math.min(Date.now(), stats.mtimeMs) };
           return;
         }
       } catch (error) {
         Logger.warn(`Failed to load from external file (attempt ${attempt} of ${maxRetries}):`, error);
       }
       if (attempt < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        await _sleep(5000);
       }
     }
     throw new Error(`Failed to load from external file after ${maxRetries} attempts.`);
   }
 
   async apiCall(path, method = 'GET', data = {}, params = {}, tado_url_dif) {
-    const access_token = this.skipAuth ? undefined : await this.getToken();
+    let access_token = this.skipAuth ? undefined : await this.getToken();
     const url = `${tado_url_dif || this.tadoApiUrl}${path}`;
 
     const options = {
       method,
-      headers: access_token ?
-        { Authorization: `Bearer ${access_token}` } :
-        undefined,
       timeout: {
         request: 15000
       },
@@ -329,8 +389,19 @@ export default class Tado {
       data: Object.keys(data).length ? data : undefined,
     });
 
+    const withAuth = (token) => ({ ...options, headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+
     try {
-      const response = await request(url, options);
+      let response;
+      try {
+        response = await request(url, withAuth(access_token));
+      } catch (error) {
+        //access token rejected before its expected expiry => renew it and retry once
+        if (!access_token || error.response?.statusCode !== 401 || !this._invalidateRejectedAccessToken(access_token)) throw error;
+        Logger.debug('API request unauthorized, renewing access token and retrying', { name: this.name, method, url });
+        access_token = await this.getToken();
+        response = await request(url, withAuth(access_token));
+      }
       await this._increaseCounter();
       Logger.debug('API request success', {
         name: this.name,
@@ -462,7 +533,7 @@ export default class Tado {
 
   async getZoneOverlay(home_id, zone_id) {
     return this.apiCall(`/api/v2/homes/${home_id}/zones/${zone_id}/overlay`).catch((error) => {
-      if (error.response.status === 404) {
+      if (error.response?.statusCode === 404) {
         return {};
       }
 

@@ -1,5 +1,14 @@
 # Changelog
 
+# v10.2.0 - 2026-10-17
+- Fix: Temporary network or server errors while refreshing the access token no longer trigger a new authorization; the token is kept and the refresh is retried
+- Fix: Requests to the tado login server now time out, so an unresponsive server can no longer block the plugin until restart
+- Fix: The token file is written atomically and only readable by its owner, so it can no longer get corrupted
+- Fix: A renewed token is kept in memory even if writing the token file fails, so the plugin keeps working without a new authorization
+- Fix: Errors during the authentication in the plugin settings are now shown correctly
+- Fix: Detect a missing zone overlay (404) correctly
+- Improve: More reliable token handling (renew on 401, device authorization following tado's poll interval/expiry, reliable pickup of updated external token files, `Retry-After` support)
+
 # v10.1.0 - 2026-10-15
 - Add optional fan speed control (RotationSpeed) for `AIR_CONDITIONING` zones via `acFanSpeed`, using the fan levels supported by the AC (#175)
 - Add optional Fan Mode switch for `AIR_CONDITIONING` zones via `acFanModeSwitch` to turn on the AC's `FAN` mode (#174)

@@ -21,6 +21,16 @@ function delayFor(attemptCount, noise) {
   return (2 ** (attemptCount - 1)) * 1000 + Math.random() * noise;
 }
 
+const MAX_RETRY_AFTER = 30 * 1000;
+
+//Retry-After as delay in ms (seconds or HTTP date), undefined if missing/invalid
+function retryAfterFor(response) {
+  const value = response.headers.get('retry-after');
+  if (!value) return undefined;
+  const ms = /^\d+$/.test(value.trim()) ? Number(value) * 1000 : Date.parse(value) - Date.now();
+  return Number.isFinite(ms) ? Math.max(ms, 0) : undefined;
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -85,14 +95,16 @@ export async function request(url, options = {}) {
       return { statusCode: response.status, statusMessage: response.statusText, body: parsedBody };
     }
 
+    const retryAfter = retryAfterFor(response);
     const canRetry =
       retryOptions.methods.includes(method) &&
       retryOptions.statusCodes.includes(response.status) &&
       response.status !== 413 &&
-      attemptCount <= retryOptions.limit;
+      attemptCount <= retryOptions.limit &&
+      !(retryAfter > MAX_RETRY_AFTER);
 
     if (canRetry) {
-      await sleep(delayFor(attemptCount, retryOptions.noise));
+      await sleep(retryAfter ?? delayFor(attemptCount, retryOptions.noise));
       continue;
     }
 

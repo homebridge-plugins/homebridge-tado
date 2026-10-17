@@ -349,7 +349,7 @@ async function fetchDevices(auth, refresh, resync) {
 
   try {
     const fnAuthenticate = async (params) => {
-      homebridge.request('/authenticate', params);
+      await homebridge.request('/authenticate', params);
       const instructionsURL = await homebridge.request('/exec', { dest: 'fullAuthentication' });
       if (instructionsURL && instructionsURL !== "") {
         $("#fetchDevices #authenticationInstructions").html(
